@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>H2-X 砸车关</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* layout: arcade cabinet — one centred pixel screen; touch pad below it (portrait) or either side (landscape) */
+:root {
+  --bg: #0b0c11;
+  --panel: #151821;
+  --line: #2a2f3d;
+  --fg: #e8ecf4;
+  --muted: #8d95aa;
+  --accent: #5ef2ff;
+  --kick: #ff9a3a;
+  --ui: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  color: var(--fg);
+  font: 14px/1.6 var(--ui);
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent;
+}
+main { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+#screen {
+  display: block;
+  width: 384px;
+  max-width: 100%;
+  aspect-ratio: 384 / 224;
+  image-rendering: pixelated;
+  background: #04050a;
+  outline: 1px solid var(--line);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  justify-content: center;
+  max-width: 76ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+kbd {
+  font: 12px var(--mono);
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 0 5px;
+  margin: 0 1px;
+}
+.tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tools button {
+  font: 12px var(--ui);
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.tools button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#pad {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 440px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#stick {
+  position: relative;
+  flex: none;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  touch-action: none;
+}
+#knob {
+  position: absolute;
+  left: 39px;
+  top: 39px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--line);
+  border: 1px solid var(--muted);
+  pointer-events: none;
+}
+.btns { display: grid; grid-template-columns: repeat(3, 56px); gap: 8px; }
+.btns button {
+  height: 44px;
+  padding: 0;
+  font: 13px var(--ui);
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  touch-action: none;
+}
+.btns button[data-b$="P"] { border-color: var(--accent); }
+.btns button[data-b$="K"] { border-color: var(--kick); }
+.btns button.sp { height: 34px; font-size: 12px; color: var(--muted); }
+.btns button.on { background: var(--line); }
+body.touch .keys { display: none; }
+@media (orientation: landscape) and (max-height: 520px) {
+  body.touch main { flex-direction: row; justify-content: center; }
+  body.touch #pad { display: contents; }
+  body.touch #stick { order: -1; }
+  body.touch .btns { order: 1; }
+  body.touch .tools { display: none; }
+}
+.sheet { max-width: 100%; overflow-x: auto; }
+.sheet canvas { display: block; image-rendering: pixelated; }
+</style>
+
+<main>
+  <canvas id="screen" width="384" height="224" aria-label="H2-X 砸车奖励关"></canvas>
+  <div id="pad" hidden>
+    <div id="stick" aria-label="方向"><span id="knob"></span></div>
+    <div class="btns">
+      <button type="button" data-b="LP">轻拳</button><button type="button" data-b="MP">中拳</button><button type="button" data-b="HP">重拳</button>
+      <button type="button" data-b="LK">轻脚</button><button type="button" data-b="MK">中脚</button><button type="button" data-b="HK">重脚</button>
+      <button type="button" class="sp" data-sp="BENG">崩拳</button><button type="button" class="sp" data-sp="XFT">旋风腿</button><button type="button" class="sp" data-sp="TFF">铁花空翻</button>
+    </div>
+  </div>
+  <p class="keys">
+    <span><kbd>Enter</kbd> 开始</span>
+    <span><kbd>A</kbd><kbd>D</kbd> 移动 <kbd>W</kbd> 跳 <kbd>S</kbd> 蹲（方向键也行）</span>
+    <span><kbd>U</kbd><kbd>I</kbd><kbd>O</kbd> 轻·中·重拳</span>
+    <span><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> 轻·中·重脚</span>
+    <span>→ + 拳 下压肘击</span>
+    <span>→ + 脚 膝撞</span>
+    <span>空中 ↓ + 拳 坠肘</span>
+    <span>空中 ↓ + 脚 踩踏</span>
+    <span>↓↘→ + 拳 崩拳</span>
+    <span>↓↙← + 脚 旋风腿</span>
+    <span>→↓↘ + 脚 铁花空翻</span>
+  </p>
+  <div class="tools">
+    <button type="button" id="bSound" aria-pressed="true">声音</button>
+    <button type="button" id="bBox" aria-pressed="false">判定框</button>
+    <button type="button" id="bSheet" aria-pressed="false">精灵表</button>
+  </div>
+  <div class="sheet" id="sheetBox" hidden><canvas id="sheet"></canvas></div>
+</main>
+
+<script>
+'use strict';
+// ════════ palettes: the robot keeps a CPS1-style 15-colour budget; car, glass and spectators get their own ramps ════════
+const PAL = ['', '#ffffff', '#e6ecf4', '#bcc7d6', '#8592aa', '#545d77', '#232739',
+  '#6c7282', '#434858', '#2b2f3a', '#1a1c23', '#08090c', '#eaffff', '#5ef2ff', '#1597d4', '#ff9a3a',
+  '#f2fffb', '#79d8c6', '#36a796', '#1d6f69', '#103f45', '#071a1f',       // 16-21 car paint, swapped per round
+  '#ffffff', '#9fd3ea', '#5486ad', '#2a4566', '#0b1622',                  // 22-26 glass
+  '#f4f6fa', '#b4b9c4', '#767c8a', '#454a57', '#12141a',                  // 27-31 chrome
+  '#5a5c66', '#33353d', '#1d1e23', '#0b0b0e',                             // 32-35 rubber
+  '#fff7d6', '#f3c75a', '#ff7b6b', '#b3242f',                             // 36-39 head / tail lamps
+  '#202128', '#111116',                                                   // 40-41 cabin interior
+  '#c9ced8', '#8e95a3', '#585e6d', '#14161c', '#eef1f6'];                 // 42-46 quadruped spectators
+const hexRGB = h => h && [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const RGB = PAL.map(hexRGB);
+const PAINTS = [                                // spec, light, mid, shadow, deep, line
+  ['#f2fffb', '#79d8c6', '#36a796', '#1d6f69', '#103f45', '#071a1f'],
+  ['#fffbe0', '#f6cf4a', '#d49a1e', '#8f5f12', '#4d320b', '#1e1305'],
+  ['#fff0ee', '#f0675d', '#c2343a', '#7c1d2a', '#43111a', '#1a070b'],
+  ['#eef4ff', '#6f9ef0', '#3a66c4', '#22407e', '#13244a', '#070d1e'],
+];
+const paintRGB = i => { const t = RGB.slice(); PAINTS[i].forEach((h, k) => { t[16 + k] = hexRGB(h); }); return t; };
+const MAT = {                                   // ramp: [specular, light, mid, shadow]
+  white:  { ramp: [1, 2, 3, 4], line: 6, gloss: .975 },
+  black:  { ramp: [7, 8, 9, 10], line: 11, gloss: .985 },
+  metal:  { ramp: [2, 3, 4, 5], line: 11, gloss: .99 },
+  screen: { ramp: [4, 9, 10, 11], line: 11, gloss: .955 },
+  glow:   { ramp: [12, 13, 13, 13], line: 14, gloss: 2 },
+  paint:  { ramp: [16, 17, 18, 19], line: 21, gloss: .97 },
+  dent:   { ramp: [17, 18, 19, 20], line: 21, gloss: 2 },
+  seam:   { ramp: [20, 20, 20, 20], line: 21, gloss: 2 },
+  glass:  { ramp: [22, 23, 24, 25], line: 26, gloss: .96 },
+  streak: { ramp: [22, 23, 23, 23], line: 26, gloss: 2 },
+  crack:  { ramp: [22, 22, 22, 22], line: 26, gloss: 2 },
+  chrome: { ramp: [27, 28, 29, 30], line: 31, gloss: .96 },
+  rubber: { ramp: [32, 33, 34, 34], line: 35, gloss: .99 },
+  head:   { ramp: [36, 36, 37, 37], line: 31, gloss: 2 },
+  tail:   { ramp: [38, 38, 39, 39], line: 31, gloss: 2 },
+  inside: { ramp: [40, 40, 41, 41], line: 35, gloss: 2 },
+  dog:    { ramp: [46, 42, 43, 44], line: 45, gloss: .975 },
+};
+const unit = v => { const l = Math.hypot(...v); return v.map(c => c / l); };
+const LIGHT = unit([-.6, -.55, .58]), HALF = unit([LIGHT[0], LIGHT[1], LIGHT[2] + 1]);
+const tone = (m, I, sp) => sp > m.gloss ? m.ramp[0] : m.ramp[I > .64 ? 1 : I > .46 ? 2 : 3];
+
+// ════════ sprite rasteriser: SDF parts → indexed pixels, hard edges, auto outline ════════
+let BW = 176, BH = 176, OX = 88, OY = 156;      // current bake buffer; shape constructors read these
+const useBuf = (w, h, ox, oy) => { BW = w; BH = h; OX = ox; OY = oy; };
+const bp = p => [OX + p[0], OY - p[1]];          // authoring coords (y up) → buffer (y down)
+const box = (x0, y0, x1, y1, m) => [x0 - m, y0 - m, x1 + m, y1 + m];
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+const off = (p, d, k) => [p[0] + d[0] * k, p[1] + d[1] * k];
+
+function circle(c, r) {
+  const [cx, cy] = bp(c);
+  return { f: (x, y) => Math.hypot(x - cx, y - cy) - r, bb: box(cx, cy, cx, cy, r + 1) };
+}
+function capsule(a, b, r1, r2) {                 // tapered capsule (iq's uneven capsule)
+  const [ax, ay] = bp(a), [bx, by] = bp(b);
+  const len = Math.hypot(bx - ax, by - ay) || 1e-3;
+  const ux = (bx - ax) / len, uy = (by - ay) / len;
+  const h = Math.max(len, Math.abs(r1 - r2) + .01);
+  const q = (r1 - r2) / h, k0 = Math.sqrt(1 - q * q);
+  return {
+    f(x, y) {
+      const px = x - ax, py = y - ay;
+      const ly = px * ux + py * uy, lx = Math.abs(px * uy - py * ux);
+      const k = -q * lx + k0 * ly;
+      if (k < 0) return Math.hypot(lx, ly) - r1;
+      if (k > k0 * h) return Math.hypot(lx, ly - h) - r2;
+      return lx * k0 + ly * q - r1;
+    },
+    bb: box(Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by), Math.max(r1, r2) + 1),
+  };
+}
+function ellipse(c, rx, ry, ang) {               // ponytail: first-order distance estimate, good enough for shading
+  const [cx, cy] = bp(c), ca = Math.cos(ang), sa = Math.sin(ang);
+  return {
+    f(x, y) {
+      const dx = x - cx, dy = y - cy, lx = dx * ca - dy * sa, ly = dx * sa + dy * ca;
+      const k = Math.hypot(lx / rx, ly / ry);
+      if (k < 1e-6) return -Math.min(rx, ry);
+      return (k - 1) / (Math.hypot(lx / (rx * rx), ly / (ry * ry)) / k);
+    },
+    bb: box(cx, cy, cx, cy, Math.max(rx, ry) + 1),
+  };
+}
+function poly(pts, rad = 0) {                    // rounded polygon (iq's polygon SDF)
+  const V = pts.map(bp), n = V.length, xs = V.map(v => v[0]), ys = V.map(v => v[1]);
+  return {
+    f(x, y) {
+      let d = Infinity, s = 1;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const [xi, yi] = V[i], [xj, yj] = V[j];
+        const ex = xj - xi, ey = yj - yi, wx = x - xi, wy = y - yi;
+        const t = Math.max(0, Math.min(1, (wx * ex + wy * ey) / (ex * ex + ey * ey)));
+        const qx = wx - ex * t, qy = wy - ey * t;
+        d = Math.min(d, qx * qx + qy * qy);
+        const c1 = y >= yi, c2 = y < yj, c3 = ex * wy > ey * wx;
+        if (c1 === c2 && c2 === c3) s = -s;
+      }
+      return s * Math.sqrt(d) - rad;
+    },
+    bb: box(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), rad + 1),
+  };
+}
+
+// one part → pixels: bevelled normal from the SDF, lit from the upper left, posterised to the ramp
+function raster(B, p) {
+  const x0 = Math.max(0, Math.floor(p.bb[0])), y0 = Math.max(0, Math.floor(p.bb[1]));
+  const x1 = Math.min(BW - 1, Math.ceil(p.bb[2])), y1 = Math.min(BH - 1, Math.ceil(p.bb[3]));
+  const form = p.form || p.f, dk = p.dk || 0, inset = p.inset ?? .5, flip = p.concave ? -1 : 1;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const px = x + .5, py = y + .5;
+    if (p.f(px, py) > 0 || (p.clip && p.clip(px, py) > -inset)) continue;
+    const d = form(px, py);
+    const gx = form(px + .4, py) - form(px - .4, py), gy = form(px, py + .4) - form(px, py - .4);
+    const gl = (Math.hypot(gx, gy) || 1) * flip;
+    const s = Math.max(0, Math.min(1, 1 + d / p.R)), nz = Math.sqrt(1 - s * s);
+    const nx = gx / gl * s, ny = gy / gl * s;
+    const I = .22 + .78 * Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) + dk;
+    const sp = dk ? 0 : nx * HALF[0] + ny * HALF[1] + nz * HALF[2];
+    const i = y * BW + x;
+    B.c[i] = tone(p.mat, I, sp); B.l[i] = p.layer; B.o[i] = p.mat.line; B.v[i] = p.visor ? 1 : 0;
+  }
+}
+// lone pixels that match none of their 4 neighbours take the majority colour (posterising noise)
+function despeckle(B) {
+  const c = B.c, out = c.slice();
+  for (let y = 1; y < BH - 1; y++) for (let x = 1; x < BW - 1; x++) {
+    const i = y * BW + x, v = c[i];
+    if (!v) continue;
+    const n = [c[i - 1], c[i + 1], c[i - BW], c[i + BW]];
+    if (n.includes(v) || n.includes(0)) continue;
+    const cnt = {};
+    for (const q of n) cnt[q] = (cnt[q] || 0) + 1;
+    const [best, k] = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+    if (k >= 2) out[i] = +best;
+  }
+  B.c = out;
+}
+// 1px outline outside the silhouette + seam lines where a nearer layer overlaps a farther one
+function outline(B) {
+  despeckle(B);
+  const { c, l, o, v } = B, out = c.slice();
+  for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) {
+    const i = y * BW + x;
+    const nb = [x > 0 ? i - 1 : -1, x < BW - 1 ? i + 1 : -1, y > 0 ? i - BW : -1, y < BH - 1 ? i + BW : -1];
+    if (!c[i]) {
+      let best = -1;
+      for (const j of nb) if (j >= 0 && c[j] && l[j] > best) { best = l[j]; out[i] = o[j]; }
+    } else {
+      for (const j of nb) if (j >= 0 && c[j] && l[j] > l[i]) { out[i] = o[i]; v[i] = 0; break; }
+    }
+  }
+  B.c = out;
+}
+function renderParts(parts, rgb = RGB) {         // → cropped canvas + offsets from the buffer origin
+  const N = BW * BH, B = { c: new Uint8Array(N), l: new Int8Array(N), o: new Uint8Array(N), v: new Uint8Array(N) };
+  for (const p of parts) raster(B, p);
+  outline(B);
+  let x0 = BW, y0 = BH, x1 = 0, y1 = 0;
+  for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) if (B.c[y * BW + x]) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  if (x0 > x1) x0 = y0 = x1 = y1 = 0;
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d'), img = cx.createImageData(w, h), mask = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y + y0) * BW + x + x0, k = y * w + x, col = rgb[B.c[i]];
+    if (!col) continue;
+    img.data.set([col[0], col[1], col[2], 255], k * 4);
+    mask[k] = B.v[i];
+  }
+  cx.putImageData(img, 0, 0);
+  return { cv, x0, y0, w, h, dx: x0 - OX, dy: y0 - OY, ox: OX, oy: OY, mask };
+}
+
+// ════════ 5×7 bitmap font (canvas text would anti-alias) ════════
+const FONT = {
+  0: '0e11131519110e', 1: '040c040404040e', 2: '0e11010204081f', 3: '1f02040201110e', 4: '02060a121f0202',
+  5: '1f101e0101110e', 6: '0608101e11110e', 7: '1f010204080808', 8: '0e11110e11110e', 9: '0e11110f01020c',
+  A: '0e1111111f1111', B: '1e11111e11111e', C: '0e11101010110e', D: '1c12111111121c', E: '1f10101e10101f',
+  F: '1f10101e101010', G: '0e11101711110f', H: '1111111f111111', I: '0e04040404040e', J: '0702020202120c',
+  K: '11121418141211', L: '1010101010101f', M: '111b1515111111', N: '11111915131111', O: '0e11111111110e',
+  P: '1e11111e101010', Q: '0e11111115120d', R: '1e11111e141211', S: '0f10100e01011e', T: '1f040404040404',
+  U: '1111111111110e', V: '11111111110a04', W: '1111111515150a', X: '11110a040a1111', Y: '1111110a040404',
+  Z: '1f01020408101f', '-': '0000001f000000', '.': '00000000000c0c', ':': '000c0c000c0c00',
+  '!': '04040404040004', '/': '01010204081010', '+': '0004041f040400', '?': '0e110102040004',
+};
+const textW = (s, k = 1) => s.length * 6 * k - k;
+function glyphs(c, s, x, y, col, k) {
+  c.fillStyle = col;
+  for (const ch of s) {
+    const g = FONT[ch];
+    if (g) for (let r = 0; r < 7; r++) {
+      const bits = parseInt(g.substr(r * 2, 2), 16);
+      for (let b = 0; b < 5; b++) if (bits >> (4 - b) & 1) c.fillRect(x + b * k, y + r * k, k, k);
+    }
+    x += 6 * k;
+  }
+}
+function text(c, s, x, y, col, k = 1, edge = '#000') {    // outlined, with a drop shadow
+  for (const [dx, dy] of [[k, 0], [-k, 0], [0, k], [0, -k], [k, k]]) glyphs(c, s, x + dx, y + dy, edge, k);
+  glyphs(c, s, x, y, col, k);
+}
+
+// ════════ H2-X rig: white shell, black joints, face screen ════════
+const D = Math.PI / 180;
+const RIG = { thigh: 25, shin: 24, spine: 29, neck: 4, ua: 17, fa: 16, hip: 4.5, shN: [-11, 23.5], shF: [8.5, 24.5] };
+const dir = a => [Math.sin(a), -Math.cos(a)];      // bone angle: 0 = down, +90° = forward, 180° = up
+
+function solve(B, T, L1, L2, bend) {               // two-bone IK → absolute bone angles
+  const dx = T[0] - B[0], dy = T[1] - B[1];
+  const d = Math.min(Math.max(Math.hypot(dx, dy), Math.abs(L1 - L2) + .01), L1 + L2 - .01);
+  const A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
+  const a1 = Math.atan2(dx, -dy) + bend * A, [mx, my] = dir(a1);
+  return [a1, Math.atan2(dx - mx * L1, -(dy - my * L1))];
+}
+// pose → joint positions. rot spins the whole body (+ = forward flip); IK targets are origin-relative
+function skeleton(P) {
+  const rot = (P.rot || 0) * D, t = P.t * D + rot, ht = t + (P.h ?? -P.t * .5) * D;   // head keeps eyes on target
+  const up = [Math.sin(t), Math.cos(t)], fw = [Math.cos(t), -Math.sin(t)];
+  const T = (lx, ly) => [P.x + fw[0] * lx + up[0] * ly, P.y + fw[1] * lx + up[1] * ly];
+  const neck = T(0, RIG.spine), hu = [Math.sin(ht), Math.cos(ht)], hf = [Math.cos(ht), -Math.sin(ht)];
+  const hb = [neck[0] + hu[0] * RIG.neck, neck[1] + hu[1] * RIG.neck];
+  const H = (lx, ly) => [hb[0] + hf[0] * lx + hu[0] * ly, hb[1] + hf[1] * lx + hu[1] * ly];
+  const limb = (base, sp, L1, L2, bend) => {
+    const [a1, a2] = sp.ik ? solve(base, sp.ik, L1, L2, sp.bend ?? bend) : [sp.a[0] * D - rot, sp.a[1] * D - rot];
+    const mid = off(base, dir(a1), L1);
+    return { base, mid, end: off(mid, dir(a2), L2), a1, a2, sp };
+  };
+  return {
+    P, rot, ht, T, H, hb,
+    nArm: limb(T(...RIG.shN), P.nA, RIG.ua, RIG.fa, -1),
+    fArm: limb(T(...RIG.shF), P.fA, RIG.ua, RIG.fa, -1),
+    nLeg: limb(T(-RIG.hip, 0), P.nL, RIG.thigh, RIG.shin, 1),
+    fLeg: limb(T(RIG.hip, 0), P.fL, RIG.thigh, RIG.shin, 1),
+    eyes: [H(3.7, 9.4), H(8, 9.6)],
+  };
+}
+// 3/4 view facing right: right side is near the camera. Draw order far arm → far leg → torso → head → near leg → near arm
+function bodyParts(S) {
+  const out = [];
+  const add = (shape, mat, R, layer, o) => out.push(Object.assign({ ...shape, mat, R, layer }, o));
+  arm(S.fArm, 0, -.15); leg(S.fLeg, 1, -.15); torso(2); head(3); leg(S.nLeg, 4, 0); arm(S.nArm, 5, 0);
+  return out;
+
+  function arm(A, layer, dk) {
+    add(circle(A.base, 5.8), MAT.white, 4.4, layer, { dk });                     // shoulder cap
+    add(capsule(A.base, A.mid, 5, 4.2), MAT.white, 4.6, layer, { dk });
+    add(circle(A.mid, 3.7), MAT.black, 3.2, layer, { dk });                      // elbow
+    const fore = capsule(A.mid, A.end, 4.6, 3.7);
+    add(fore, MAT.white, 4.2, layer, { dk });
+    add(capsule(lerp(A.mid, A.end, .62), A.end, 5, 4.4), MAT.black, 4.2, layer, { dk, clip: fore.f, form: fore.f });
+    const a = A.a2 + (A.sp.hr || 0) * D, ex = dir(a), ey = dir(a + Math.PI / 2);
+    const W = (lx, ly) => [A.end[0] + ex[0] * lx + ey[0] * ly, A.end[1] + ex[1] * lx + ey[1] * ly];
+    if (A.sp.hand === 'palm') {
+      add(poly([W(-1, -2.8), W(8.6, -2.4), W(9.8, -.5), W(9, 2.6), W(-1, 3)], .9), MAT.black, 2.6, layer, { dk });
+      add(capsule(W(1, -2), W(4.2, -5.2), 1.6, 1.3), MAT.black, 1.5, layer, { dk });
+    } else {
+      const fist = poly([W(-.5, -3.8), W(6.4, -4), W(8, -2), W(7.8, 3), W(6, 4), W(-.5, 3.6)], 1.2);
+      add(fist, MAT.black, 3.6, layer, { dk });
+      add(poly([W(1.5, 1.4), W(7.4, 1.2), W(7.6, 4.8), W(1.5, 4.8)]), MAT.white, 3.6, layer, { dk, clip: fist.f, form: fist.f });
+    }
+  }
+  function leg(G, layer, dk) {
+    add(capsule(G.base, G.mid, 7.6, 5.6), MAT.white, 6.6, layer, { dk });
+    add(circle(G.mid, 4.8), MAT.black, 4, layer, { dk });                        // knee
+    const shin = capsule(G.mid, G.end, 5.6, 3.6);
+    add(shin, MAT.white, 5, layer, { dk });
+    // calf: the back half of the shin is black (split along the bone axis)
+    const [ax, ay] = bp(G.mid), [bx, by] = bp(G.end), L = Math.hypot(bx - ax, by - ay) || 1;
+    const calf = { f: (x, y) => ((x - ax) * (by - ay) - (y - ay) * (bx - ax)) / L + .8, bb: shin.bb };   // <0 behind the bone
+    add(calf, MAT.black, 5, layer, { dk, clip: (x, y) => Math.max(shin.f(x, y), -Math.hypot(x - ax, y - ay) + 6), form: shin.f, inset: .5 });
+    add(circle(G.end, 3), MAT.black, 2.4, layer, { dk });                        // ankle
+    const fo = (G.sp.fo || 0) * D + S.rot, ex = [Math.cos(fo), -Math.sin(fo)], ey = [Math.sin(fo), Math.cos(fo)];
+    const F = (lx, ly) => [G.end[0] + ex[0] * lx + ey[0] * ly, G.end[1] + ex[1] * lx + ey[1] * ly];
+    const shoe = poly([F(-3.8, 1.8), F(-4.8, -1.8), F(-4, -3.4), F(9.6, -3.4), F(11.2, -1.9), F(10.2, -.4), F(5.4, 1.2), F(1.6, 2.9), F(-2, 3.2)], .7);
+    add(shoe, MAT.white, 2.6, layer, { dk });
+    add(poly([F(-7, -2), F(13, -2), F(13, -6), F(-7, -6)]), MAT.black, 2.6, layer, { dk, clip: shoe.f, form: shoe.f, inset: 0 });
+  }
+  function torso(layer) {
+    const T = S.T;
+    add(capsule(T(.3, 26), S.hb, 3, 2.7), MAT.black, 2.6, layer);               // neck
+    const pelvis = poly([T(-9.5, 6), T(7.5, 6), T(10, 0), T(7, -5.5), T(.5, -8.5), T(-7, -5.5), T(-10.5, 0)], 1.5);
+    add(pelvis, MAT.white, 5, layer);
+    add(poly([T(-3, -1.5), T(4, -1.5), T(2, -10), T(-1.5, -10)], 1), MAT.black, 5, layer, { clip: pelvis.f, form: pelvis.f });
+    add(poly([T(-7, 13), T(7, 13), T(6, 4), T(-6.5, 4)], 1), MAT.metal, 4, layer);    // narrow waist
+    const chest = poly([T(-12.5, 26), T(-4, 29.2), T(7, 28.6), T(12.5, 23), T(11.5, 15.5), T(6, 11), T(-6, 11), T(-11.5, 15), T(-13.5, 21)], 2);
+    add(chest, MAT.white, 7, layer);
+    add(poly([T(-18, 24), T(-7.5, 21), T(-5, 8), T(-18, 8)]), MAT.black, 7, layer, { clip: chest.f, form: chest.f });
+    add(circle(T(6, 21), 1.2), MAT.glow, 1, layer, { clip: chest.f });           // status light
+  }
+  function head(layer) {
+    const H = S.H, shell = ellipse(H(1.3, 9), 7.8, 9.4, -S.ht);
+    add(shell, MAT.white, 7, layer);
+    add(poly([H(.6, 15.6), H(11, 15.6), H(11, 2.2), H(4.4, 1.4), H(1.1, 3.6), H(-.7, 9)], 1.2), MAT.screen, 7, layer,
+      { clip: shell.f, form: shell.f, inset: .9, visor: true });
+  }
+}
+function bakePose(pose) {
+  useBuf(176, 176, 88, 156);
+  const S = skeleton(pose), s = renderParts(bodyParts(S));
+  s.eyes = S.eyes.map(bp).map(([x, y]) => [Math.floor(x), Math.floor(y)]);
+  s.S = S;
+  return s;
+}
+
+// face-screen expressions, drawn over the visor at runtime: [near eye, far eye]
+const EXPR = {
+  open:  [['.b.', 'bab', 'bab', '.b.'], ['b.', 'ab', 'ab', 'b.']],
+  blink: [['...', '...', 'bbb', '...'], ['..', '..', 'bb', '..']],
+  glare: [['b..', '.bb', 'aab', '...'], ['..', 'bb', 'ab', '..']],
+  happy: [['...', '.b.', 'b.b', '...'], ['..', 'b.', '.b', '..']],
+  sad:   [['bbb', '.b.', '.a.', '.c.'], ['bb', 'b.', 'a.', 'c.']],
+  wow:   [['bbb', 'b.b', 'b.b', 'bbb'], ['bb', 'b.', 'b.', 'bb']],
+};
+const EYEC = { a: PAL[12], b: PAL[13], c: PAL[14] };
+function drawEyes(c, s, exp, ox, oy) {
+  EXPR[exp].forEach((pat, k) => {
+    const [ax, ay] = s.eyes[k], w = pat[0].length, h = pat.length;
+    for (let r = 0; r < h; r++) for (let q = 0; q < w; q++) {
+      const ch = pat[r][q];
+      if (ch === '.') continue;
+      const bx = ax + q - (w >> 1), by = ay + r - (h >> 1), mx = bx - s.x0, my = by - s.y0;
+      if (mx < 0 || my < 0 || mx >= s.w || my >= s.h || !s.mask[my * s.w + mx]) continue;
+      c.fillStyle = EYEC[ch];
+      c.fillRect(ox + bx - s.ox, oy + by - s.oy, 1, 1);
+    }
+  });
+}
+
+// ════════ poses (origin-relative, y up). I = IK target for hand/ankle, A = absolute bone angles ════════
+const I = (x, y, o) => ({ ik: [x, y], ...o }), A = (a, b, o) => ({ a: [a, b], ...o });
+const PALM = { hand: 'palm', hr: 40 };
+const ST = { x: 0, y: 47, t: 6, h: 0, fA: I(32, 77, PALM), nA: I(10, 69), fL: I(15, 4), nL: I(-18, 4) };
+const P = o => ({ ...ST, ...o });
+const TUCK = { x: 0, y: 56, t: 10, h: 10, nA: A(70, 10), fA: A(85, 20), fL: A(135, 15, { fo: 30 }), nL: A(118, 0, { fo: 30 }) };
+const POSES = {
+  st0: P({}),
+  st1: P({ y: 46, fA: I(31, 74, PALM), nA: I(11, 63) }),
+  st2: P({ y: 45, fA: I(31, 73, PALM), nA: I(11, 62) }),
+  wk1: P({ x: 1, fL: I(19, 9), nL: I(-18, 4) }),
+  wk2: P({ x: 2, y: 46, fL: I(18, 4), nL: I(-11, 8) }),
+  wk3: P({ x: 1, fL: I(14, 4), nL: I(-15, 6) }),
+  cr0: P({ y: 28, t: 16, fA: I(29, 56, PALM), nA: I(13, 47), fL: I(16, 4), nL: I(-15, 4) }),
+  jsq: P({ y: 38, t: 12, fA: I(28, 66, PALM), nA: I(11, 56), fL: I(13, 4), nL: I(-15, 4) }),
+  jup: P({ y: 50, t: 4, fA: I(24, 84), nA: I(4, 76), fL: A(55, -20, { fo: 30 }), nL: A(12, -40, { fo: 40 }) }),
+  jtk: P({ y: 52, t: 14, fA: I(24, 72), nA: I(10, 66), fL: A(105, -10, { fo: 25 }), nL: A(78, -45, { fo: 40 }) }),
+  jfl: P({ y: 48, t: 4, fA: I(28, 80, PALM), nA: I(8, 70), fL: A(30, 10, { fo: 20 }), nL: A(-6, -22, { fo: 30 }) }),
+  lp1: P({ t: 8, fA: I(26, 74) }),
+  lp2: P({ x: 1, t: 11, fA: I(47, 76), nA: I(10, 66) }),
+  mp1: P({ t: 2, nA: I(-3, 66), fA: I(26, 76, PALM) }),
+  mp2: P({ x: 3, t: 18, nA: I(41, 75), fA: I(12, 66), nL: I(-19, 4, { fo: 18 }) }),
+  hp1: P({ t: -6, nA: I(-5, 101, { bend: 1 }), fA: I(24, 62, PALM) }),
+  hp2: P({ t: 8, nA: I(26, 98, { bend: 1 }), fA: I(18, 60, PALM) }),
+  hp3: P({ x: 5, y: 41, t: 30, nA: I(42, 52), fA: I(2, 56), fL: I(23, 4), nL: I(-18, 4) }),
+  hp4: P({ x: 3, y: 43, t: 22, nA: I(35, 58), fA: I(6, 60), fL: I(20, 4) }),
+  lk1: P({ t: 0, fL: A(45, -5, { fo: 15 }) }),
+  lk2: P({ x: -2, t: -8, fL: A(72, 84, { fo: 6 }), nL: I(-12, 4) }),
+  mk1: P({ t: -10, nL: A(100, -10, { fo: 10 }), fL: I(3, 4) }),
+  mk2: P({ x: -4, t: -28, nL: A(92, 92, { fo: -85 }), fL: I(-4, 4), nA: I(-14, 64), fA: I(14, 78) }),
+  hk1: P({ t: -14, nL: A(115, 10, { fo: 10 }), fL: I(0, 4) }),
+  hk2: P({ x: -5, t: -34, nL: A(128, 118, { fo: -30 }), fL: I(-6, 4), nA: I(-18, 70), fA: I(12, 82) }),
+  hk3: P({ t: -16, nL: A(100, 50, { fo: 20 }), fL: I(0, 4) }),
+  el1: P({ y: 48, t: -8, nA: A(160, -20), fA: I(26, 70, PALM) }),                       // 下压肘击 wind-up
+  el2: P({ x: 4, y: 37, t: 42, nA: A(20, 170), fA: I(2, 50), fL: I(23, 4), nL: I(-18, 4) }),
+  kn1: P({ t: 4, nL: A(60, -30, { fo: 30 }), fL: I(6, 4), nA: I(26, 80), fA: I(32, 82) }),   // 膝撞
+  kn2: P({ x: 2, y: 49, t: -14, nL: A(108, -10, { fo: 40 }), fL: I(-2, 4), nA: I(20, 62), fA: I(26, 64) }),
+  cp2: P({ y: 28, t: 18, fA: I(45, 58), nA: I(13, 47), fL: I(16, 4), nL: I(-15, 4) }),
+  ck1: P({ x: -2, y: 22, t: 26, fL: A(70, 60), nL: I(-16, 4), nA: I(4, 10, { hand: 'palm', hr: 90 }), fA: I(20, 40) }),
+  ck2: P({ x: -4, y: 20, t: 30, fL: A(84, 88), nL: I(-16, 4), nA: I(4, 8, { hand: 'palm', hr: 90 }), fA: I(18, 36) }),
+  jp:  P({ y: 48, t: 16, fA: I(37, 40), nA: I(6, 68), fL: A(60, -20, { fo: 30 }), nL: A(20, -40, { fo: 30 }) }),
+  jk:  P({ y: 48, t: -8, fL: A(74, 76, { fo: 12 }), nL: A(-25, -120, { fo: 40 }), nA: I(-22, 84, { hand: 'palm', hr: 0 }), fA: I(28, 86, PALM) }),
+  jst: P({ y: 50, t: 6, nL: A(6, 2, { fo: -25 }), fL: A(70, -30, { fo: 30 }), nA: I(-16, 80), fA: I(22, 84) }),
+  je:  { x: 0, y: 8, t: 60, nA: A(0, 180), fA: A(30, 120), fL: A(-120, -170, { fo: 60 }), nL: A(-100, -160, { fo: 60 }) },   // 坠肘 dive
+  bq1: P({ x: -3, y: 44, t: -4, nA: I(-6, 54), fA: I(24, 72, PALM), fL: I(16, 4), nL: I(-18, 4) }),
+  bq2: P({ x: 6, y: 41, t: 12, nA: I(8, 58), fA: I(20, 66, PALM), fL: I(24, 8), nL: I(-16, 4) }),
+  bq3: P({ x: 9, y: 39, t: 22, nA: I(47, 63), fA: I(6, 56), fL: I(30, 4), nL: I(-20, 4, { fo: 10 }) }),
+  xf1: P({ y: 40, t: 10, nA: I(-16, 66), fA: I(24, 70), fL: I(12, 4), nL: I(-12, 6) }),
+  xf2: P({ y: 50, t: -4, nL: A(92, 90), fL: A(25, -70, { fo: 30 }), nA: I(-30, 78, { hand: 'palm', hr: 0 }), fA: I(30, 80, { hand: 'palm', hr: 0 }) }),
+  xf3: P({ y: 50, t: 0, nL: A(60, -30, { fo: 20 }), fL: A(30, -60, { fo: 30 }), nA: I(-6, 74), fA: I(14, 74) }),
+  tf1: P({ y: 34, t: 16, nA: I(-14, 50), fA: I(-4, 48), fL: I(12, 4), nL: I(-12, 4) }),
+  tf2: { x: 0, y: 54, t: -20, h: -8, nA: A(-150, -170), fA: A(-120, -150), fL: A(150, 165, { fo: -40 }), nL: A(-8, -16, { fo: 40 }) },
+  tf3: { ...TUCK, rot: -90, fL: A(150, 150, { fo: -20 }) },
+  tf4: { ...TUCK, rot: -185 },
+  tf5: { ...TUCK, rot: -275 },
+  v1:  P({ y: 48, t: 3, fL: I(8, 4), nL: I(-7, 4), nA: I(15, 73), fA: I(17, 74, { hand: 'palm', hr: 85 }) }),
+  v2:  P({ y: 48, t: 9, h: 16, fL: I(8, 4), nL: I(-7, 4), nA: I(16, 71), fA: I(18, 72, { hand: 'palm', hr: 85 }) }),
+  ko:  P({ y: 44, t: 18, h: 24, nA: I(0, 30), fA: I(8, 28), fL: I(8, 4), nL: I(-8, 4) }),
+};
+
+// ════════ frame data: [pose, frames, {hit:[x0,y0,x1,y1] origin-relative, dmg, dx, vy, vx, fx, flip, hover}] ════════
+const MOVES = {
+  idle:   { loop: 1, f: [['st0', 10], ['st1', 8], ['st2', 10], ['st1', 8]] },
+  walk:   { loop: 1, f: [['wk1', 6], ['wk2', 6], ['wk3', 6], ['st0', 6]] },
+  back:   { loop: 1, f: [['wk3', 7], ['wk2', 7], ['wk1', 7], ['st0', 7]] },
+  crouch: { loop: 1, f: [['cr0', 60]] },
+  jsq:    { act: 1, f: [['jsq', 4]] },
+  jump:   { act: 1, f: [['jup', 12], ['jtk', 14], ['jfl', 999]] },
+  land:   { act: 1, f: [['jsq', 4]] },
+  LP: { act: 1, name: 'JAB', f: [['lp1', 2], ['lp2', 3, { hit: [30, 66, 54, 84], dmg: 3 }], ['lp1', 5]] },
+  MP: { act: 1, name: 'STRAIGHT', f: [['mp1', 3], ['mp2', 4, { hit: [24, 66, 50, 84], dmg: 6 }], ['mp1', 7], ['st0', 2]] },
+  HP: { act: 1, name: 'HAMMER FIST', face: 'glare', f: [['hp1', 5], ['hp2', 3], ['hp3', 4, { hit: [22, 34, 52, 70], dmg: 11 }], ['hp4', 14]] },
+  LK: { act: 1, name: 'LOW KICK', f: [['lk1', 3], ['lk2', 3, { hit: [22, 6, 52, 26], dmg: 3 }], ['lk1', 6]] },
+  MK: { act: 1, name: 'SIDE KICK', f: [['mk1', 4], ['mk2', 5, { hit: [26, 36, 58, 58], dmg: 7 }], ['mk1', 8]] },
+  HK: { act: 1, name: 'HIGH KICK', face: 'glare', f: [['hk1', 5], ['hk2', 5, { hit: [20, 62, 54, 96], dmg: 10 }], ['hk3', 7], ['st0', 4]] },
+  ELB: { act: 1, name: 'DOWN ELBOW', face: 'glare', f: [['el1', 7], ['el2', 4, { hit: [6, 22, 34, 50], dmg: 10 }], ['el2', 9], ['st0', 5]] },
+  KNEE: { act: 1, name: 'KNEE STRIKE', face: 'glare', f: [['kn1', 5], ['kn2', 5, { hit: [10, 42, 34, 66], dmg: 9 }], ['kn1', 8]] },
+  cP: { act: 1, crouch: 1, name: 'LOW PUNCH', f: [['cr0', 2], ['cp2', 3, { hit: [30, 44, 56, 62], dmg: 3 }], ['cr0', 6]] },
+  cK: { act: 1, crouch: 1, name: 'SWEEP', f: [['ck1', 4], ['ck2', 5, { hit: [22, 0, 62, 16], dmg: 6 }], ['ck1', 9]] },
+  jP: { act: 1, name: 'AIR PUNCH', f: [['jp', 999, { hit: [22, 26, 46, 52], dmg: 6 }]] },
+  jK: { act: 1, name: 'FLYING KICK', f: [['jk', 999, { hit: [26, 16, 58, 40], dmg: 7 }]] },
+  jS: { act: 1, name: 'STOMP', f: [['jst', 999, { hit: [-12, -10, 20, 12], dmg: 9, vy: -5 }]] },
+  jE: { act: 1, name: 'FALLING ELBOW', face: 'glare', f: [['je', 999, { hit: [0, -6, 30, 18], dmg: 10, vy: -5 }]] },
+  WIN:  { act: 1, face: 'happy', f: [['v1', 18], ['v2', 9999]] },
+  LOSE: { act: 1, face: 'sad', f: [['ko', 9999]] },
+};
+['L', 'M', 'H'].forEach((s, k) => {
+  MOVES['BENG' + s] = { act: 1, name: 'BENG QUAN', face: 'glare', f: [['bq1', 6], ['bq2', 4, { dx: 3 + k }],
+    ['bq3', 6, { hit: [30, 50, 66, 76], dmg: 12 + 2 * k, fx: 'ring' }], ['bq3', 8], ['bq2', 7]] };
+  const spin = [['xf2', 4, { hover: 1, hit: [-6, 52, 50, 70], dmg: 4 }], ['xf3', 3, { hover: 1 }],
+    ['xf2', 4, { hover: 1, flip: 1, hit: [-50, 52, 6, 70], dmg: 4 }], ['xf3', 3, { hover: 1, flip: 1 }]];
+  const spins = [].concat(...Array(k + 1).fill(spin));
+  spins[0] = [spins[0][0], spins[0][1], { ...spins[0][2], vy: 2.2, vx: 2.4 }];
+  MOVES['XFT' + s] = { act: 1, name: 'XUANFENG TUI', face: 'glare', f: [['xf1', 5], ...spins, ['jfl', 999]] };
+  MOVES['TFF' + s] = { act: 1, name: 'TIEHUA FLIP', face: 'glare', f: [['tf1', 4],
+    ['tf2', 5, { vy: 7.4 + .5 * k, vx: -.5, hit: [-4, 46, 36, 112], dmg: 10 + 2 * k, fx: 'sparks' }],
+    ['tf3', 5, { fx: 'sparks' }], ['tf4', 5, { fx: 'sparks' }], ['tf5', 6], ['jfl', 999]] };
+});
+const SPR = {};
+for (const k in POSES) SPR[k] = bakePose(POSES[k]);
+for (const k in MOVES) for (const [pose] of MOVES[k].f) if (!SPR[pose]) throw new Error(`move ${k} uses unknown pose ${pose}`);
+
+// ════════ the car: an original 90s three-box sedan, front to the right. Car-local coords: x ±89, y up from the ground ════════
+const WHEELS = { rear: -56, front: 58 }, WR = 12;
+const ZONES = { rear: [-92, 10, -44, 40], cabin: [-46, 10, 36, 64], front: [34, 10, 92, 40] };
+const ZHP = { rear: 100, cabin: 150, front: 100 };
+const car = { x: 256, paint: -1 };
+let WHEEL, PARTS = {};
+
+function carShape() {                            // damage → deformation of every car point
+  const v = car.lv, wreck = v.rear + v.cabin + v.front === 9;
+  const fd = v.front > 2 ? 5 : 0, rd = v.rear > 2 ? 5 : 0, sq = wreck ? .86 : 1;
+  return { D: (x, y) => [x, y * sq - (x > 0 ? fd * x : -rd * x) / 89], roof: v.cabin > 2 ? 49 : 58, buckle: v.front > 1 };
+}
+const roofLine = r => [[-89, 33], [-84, 36.5], [-58, 37.5], [-37, r - .5], [-30, r + .5], [8, r + .5], [14, r - .5], [35, 36], [82, 33.5], [89, 31]];
+function carTop(xr) {                            // top surface height at car-local x, -1 off the car
+  if (xr < -89 || xr > 89) return -1;
+  const { D, roof } = carShape(), p = roofLine(roof);
+  let i = 1;
+  while (i < p.length - 1 && xr > p[i][0]) i++;
+  const [x0, y0] = p[i - 1], [x1, y1] = p[i];
+  return D(xr, y0 + (y1 - y0) * (xr - x0) / (x1 - x0))[1];
+}
+function carParts() {
+  const { D, roof, buckle } = carShape(), v = car.lv, gone = car.gone, out = [];
+  const add = (s, mat, R, o) => out.push(Object.assign({ ...s, mat, R, layer: 0 }, o));
+  const dp = (pts, r = 0) => poly(pts.map(([x, y]) => D(x, y)), r);
+  const hull = dp([[-89.5, 14], [-88, 33], [-84, 36.5], [-58, 37.5], [35, 36], buckle ? [60, 38] : [58, 35],
+    [82, buckle ? 35.5 : 33.5], [88.5, 31], [89.5, 26], [89, 15], [86, 11], [-86, 11]], 1.5);
+  const arch = Object.values(WHEELS).map(wx => { const [ax, ay] = bp(D(wx, WR)); return (x, y) => 15 - Math.hypot(x - ax, y - ay); });
+  const body = { f: (x, y) => Math.max(hull.f(x, y), arch[0](x, y), arch[1](x, y)), bb: hull.bb };
+  add(body, MAT.paint, 9);
+  const cab = dp([[-58, 37], [-37, roof - .5], [-30, roof + .5], [8, roof + .5], [14, roof - .5], [35.5, 35.5]], 1.5);
+  add(cab, MAT.paint, 5);
+  const shell = { f: (x, y) => Math.min(body.f(x, y), cab.f(x, y)),
+    bb: [Math.min(hull.bb[0], cab.bb[0]), Math.min(hull.bb[1], cab.bb[1]), Math.max(hull.bb[2], cab.bb[2]), Math.max(hull.bb[3], cab.bb[3])] };
+  const deco = (s, mat, R, o) => add(s, mat, R, Object.assign({ clip: shell.f }, o));
+  const line = (a, b) => capsule(D(...a), D(...b), .55, .55);
+  deco(dp([[-79, 23], [79, 23], [79, 20.6], [-79, 20.6]]), MAT.rubber, 9, { form: shell.f });          // rubbing strip
+  for (const [a, b] of [[[35.6, 35.4], [35.6, 12]], [[-9, 37.4], [-9, 12]], [[-48.5, 36.8], [-48.5, 12.5]]]) deco(line(a, b), MAT.seam, 1, { inset: 0 });
+  for (const hx of [20.5, -21.5]) deco(dp([[hx, 30.8], [hx + 6.5, 30.8], [hx + 6.5, 29.2], [hx, 29.2]], .4), MAT.chrome, 1.5);
+  deco(circle(D(-67, 30), 2.2), MAT.dent, 2.2, { concave: true });                                    // fuel flap
+  for (const d of car.dents) deco(circle(D(d.x, d.y), d.r), MAT.dent, d.r, { concave: true });
+  const wt = roof - 2.6;
+  const winF = dp([[31.6, 37.6], [13.6, wt], [-7, wt], [-7, 37.6]], .5), winR = dp([[-11, 37.6], [-11, wt], [-34.4, wt], [-53, 37.6]], .5);
+  if (v.cabin < 2) {
+    for (const [w, ss] of [[winF, [[17, 22], [25, 27]]], [winR, [[-25, -20], [-17, -15]]]]) {
+      deco(w, MAT.glass, 7);
+      for (const [x0, x1] of ss) add(dp([[x0, 37.6], [x1, 37.6], [x1 - 8, wt], [x0 - 8, wt]]), MAT.streak, 3, { clip: w.f, form: w.f });
+    }
+    if (v.cabin === 1) for (const k of car.cracks) for (const [dx, dy] of k.rays) add(line([k.x, k.y], [k.x + dx, k.y + dy]), MAT.crack, 1, { clip: (k.w ? winF : winR).f, inset: 0 });
+  } else {
+    const holes = [winF, winR];
+    if (v.cabin > 2) holes.push(dp([[35, 35.2], [35, 13.2], [-7.8, 13.2], [-7.8, 35.2]], 1), dp([[-10.2, 35.2], [-10.2, 13.2], [-47.2, 13.8], [-47.2, 35.8]], 1));
+    for (const h of holes) deco(h, MAT.inside, 4);
+    const inner = (x, y) => Math.min(...holes.map(h => h.f(x, y)));
+    for (const sx of [2, -37]) add(dp([[sx, 22], [sx + 7, 23], [sx + 8, roof - 9], [sx + 2, roof - 8]], 1.2), MAT.rubber, 3, { clip: inner });
+    for (const [x, y, s] of [[-6.5, 38, 1], [30, 38.5, -1], [-11.5, 38, 1], [-51, 38.5, 1]]) deco(dp([[x, y], [x + 3 * s, y], [x + s, y + 5]]), MAT.glass, 2);
+  }
+  deco(dp([[80.5, 32.5], [88.6, 30.6], [89.2, 26.4], [81, 26.8]], .5), v.front ? MAT.inside : MAT.head, 3);
+  deco(dp([[-88.6, 34.6], [-82.5, 35.6], [-82.5, 28], [-89.2, 28.4]], .5), v.rear ? MAT.inside : MAT.tail, 3);
+  if (buckle) for (const [a, b] of [[[48, 36.4], [55, 32.5]], [[55, 32.5], [62, 37.2]], [[66, 36.5], [72, 33]]]) deco(line(a, b), MAT.seam, 1, { inset: 0 });
+  if (v.front > 2) { deco(dp([[37, 35.8], [81.5, 33.4], [81.5, 27.6], [37.5, 28]], .5), MAT.inside, 3); deco(dp([[45, 33.6], [71, 33], [71, 28.8], [45, 29]], .8), MAT.chrome, 2.5); }
+  if (v.rear > 2) deco(dp([[-58.5, 37.2], [-84.5, 36.2], [-84.5, 30.6], [-58.5, 30.6]], .5), MAT.inside, 3);
+  if (!gone.has('mirror')) add(dp([[29.5, 38], [35.5, 38.6], [37.4, 43.8], [30.2, 44.2]], .9), MAT.paint, 2, { layer: 1 });
+  if (!gone.has('bumperF')) add(dp([[83.5, 11.5], [91.2, 12.2], [91.6, 22.6], [83.5, 23.2]], 1.2), MAT.rubber, 3, { layer: 1 });
+  if (!gone.has('bumperR')) add(dp([[-91.6, 12.2], [-83.5, 11.5], [-83.5, 23.2], [-91.2, 22.6]], 1.2), MAT.rubber, 3, { layer: 1 });
+  return out;
+}
+function bakeCar() { useBuf(200, 76, 100, 72); car.spr = renderParts(carParts(), car.rgb); car.dirty = false; }
+
+function wheelSprite() {
+  useBuf(32, 32, 16, 16);
+  const out = [], add = (s, m, R) => out.push({ ...s, mat: m, R, layer: 0 });
+  add(circle([0, 0], WR), MAT.rubber, 6); add(circle([0, 0], 7), MAT.chrome, 4.5); add(circle([0, 0], 2.2), MAT.rubber, 2);
+  for (let i = 0; i < 5; i++) add(circle([Math.cos(i * 1.2566) * 4.5, Math.sin(i * 1.2566) * 4.5], 1.2), MAT.rubber, 1.2);
+  const s = renderParts(out);
+  s.r = WR;
+  return s;
+}
+function partSprite(k) {                         // loose panels for the debris, centred on their own origin
+  useBuf(56, 32, 28, 16);
+  const out = [], add = (s, m, R, o) => out.push(Object.assign({ ...s, mat: m, R, layer: 0 }, o));
+  const slabShape = (w, h, r = 1) => poly([[-w, h], [w, h], [w, -h], [-w, -h]], r);
+  if (k.startsWith('bumper')) add(slabShape(3.2, 5.2, 1.2), MAT.rubber, 3);
+  if (k === 'mirror') add(poly([[-3, -2.6], [3, -2.2], [3.8, 2.6], [-2.6, 3]], .9), MAT.paint, 2);
+  if (k === 'hood') add(poly([[-22, 1.6], [22, .4], [22.6, -1.6], [-22, -1]], .8), MAT.paint, 2);
+  if (k === 'trunk') add(slabShape(12.5, 1.6, .8), MAT.paint, 2);
+  if (k.startsWith('door')) {
+    const w = k === 'doorF' ? 21 : 18, p = slabShape(w, 10.6, 1);
+    add(p, MAT.paint, 7);
+    add(poly([[-w, -2.4], [w, -2.4], [w, -4.6], [-w, -4.6]]), MAT.rubber, 7, { clip: p.f, form: p.f });
+    add(poly([[w - 10, 5], [w - 4, 5], [w - 4, 3.6], [w - 10, 3.6]], .4), MAT.chrome, 1.5, { clip: p.f });
+  }
+  const s = renderParts(out, car.rgb);
+  s.r = s.h / 2;
+  return s;
+}
+
+// ════════ spectators: little quadruped robots perched on the scrap stacks ════════
+function dogSprite(pose) {
+  useBuf(40, 32, 20, 29);
+  const out = [], add = (s, m, R, layer, dk = 0) => out.push({ ...s, mat: m, R, layer, dk });
+  const sit = pose === 'sit', hop = pose === 'hop', by = hop ? 13 : sit ? 9 : 10;
+  const legs = (dx, layer, dk) => {
+    const hind = sit ? [[-6, 7], [-2, 2.5], [-7, 1.2]] : [[-6, by - 2], [-9, by - 6.5], [-6, 1.2]];
+    const front = [[5, by - 2], [2.5, hop ? 5 : by - 6.5], [5, 1.2]];
+    for (const [a, b, c] of [hind, front]) {
+      add(capsule([a[0] + dx, a[1]], [b[0] + dx, b[1]], 2, 1.6), MAT.dog, 1.8, layer, dk);
+      add(circle([b[0] + dx, b[1]], 1.5), MAT.black, 1.4, layer, dk);
+      add(capsule([b[0] + dx, b[1]], [c[0] + dx, c[1]], 1.4, 1.1), MAT.dog, 1.3, layer, dk);
+    }
+  };
+  legs(2, 0, -.16);
+  const tilt = sit ? 3 : 0, hy = by + tilt + (pose === 'look' ? 2.5 : 1);
+  add(capsule([-8, by - tilt * .5], [6, by + tilt], 4, 3.6), MAT.dog, 3.6, 1);
+  add(poly([[6, hy + 3.2], [13.5, hy + 2.5], [14.5, hy - .8], [7, hy - 2]], 1), MAT.dog, 2.2, 1);
+  add(circle([12.6, hy + 1.2], .9), MAT.glow, 1, 1);
+  legs(0, 2, 0);
+  return renderParts(out);
+}
+const DOG = { sit: dogSprite('sit'), look: dogSprite('look'), hop: dogSprite('hop') };
+WHEEL = wheelSprite();
+
+// ════════ stage: a night scrapyard (original), painted once into parallax layers ════════
+const SW = 384, SH = 224, GROUND = 204, STAGE_W = 512, L = {}, DOGS = [];
+let sseed = 20261021;
+const srand = () => (sseed = sseed * 16807 % 2147483647) / 2147483647;
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bay = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
+const layer = w => { const c = document.createElement('canvas'); c.width = w; c.height = SH; return c.getContext('2d'); };
+const fill = (c, col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+function grad(c, x0, w, stops) {                 // vertical gradient, ordered-dithered between stops
+  for (let i = 1; i < stops.length; i++) {
+    const [ya, ca] = stops[i - 1], [yb, cb] = stops[i];
+    for (let y = ya; y < yb; y++) {
+      const t = (y - ya) / (yb - ya) * 16;
+      fill(c, ca, x0, y, w, 1);
+      c.fillStyle = cb;
+      for (let x = x0; x < x0 + w; x++) if (bay(x, y) < t) c.fillRect(x, y, 1, 1);
+    }
+  }
+}
+function disc(c, cx, cy, r, col, ry = r) {
+  c.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) { const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2))); c.fillRect(cx - hw, cy + y, hw * 2 + 1, 1); }
+}
+function glow(c, cx, cy, r, col, ry = r, k = 1) { // dithered halo, dense in the middle
+  c.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) for (let x = -r; x <= r; x++) {
+    const d = Math.hypot(x / r, y / ry);
+    if (d <= 1 && bay(cx + x, cy + y) < (1 - d) * 16 * k) c.fillRect(cx + x, cy + y, 1, 1);
+  }
+}
+function paintSky() {
+  const c = L.sky = layer(SW);
+  grad(c, 0, SW, [[0, '#04050a'], [56, '#070a14'], [104, '#0b1021'], [146, '#121a31'], [176, '#1b2542'], [224, '#1b2542']]);
+  for (let i = 0; i < 70; i++) {
+    const x = srand() * SW | 0, y = srand() * 118 | 0, b = srand();
+    fill(c, b > .9 ? '#ffffff' : b > .55 ? '#8a96bd' : '#3b4566', x, y, 1, 1);
+    if (b > .97) { fill(c, '#8a96bd', x - 1, y, 3, 1); fill(c, '#8a96bd', x, y - 1, 1, 3); fill(c, '#ffffff', x, y, 1, 1); }
+  }
+  glow(c, 318, 34, 22, '#18203a', 22, .9);
+  disc(c, 318, 34, 9, '#b9b39c'); disc(c, 317, 33, 8, '#e9e4cf');
+  fill(c, '#cbc5ad', 313, 31, 2, 2); fill(c, '#cbc5ad', 320, 36, 3, 2); fill(c, '#cbc5ad', 316, 37, 1, 1);
+}
+function paintFar() {
+  const W = Math.ceil(SW + (STAGE_W - SW) * .3), c = L.far = layer(W);
+  for (let i = 0; i < 46; i++) fill(c, srand() > .7 ? '#c9a25a' : '#2a3550', srand() * W | 0, 118 + srand() * 10 | 0, 1, 1);   // city glow
+  for (let x = 0; x < W; x++) {                  // distant scrap mounds
+    const h = Math.round(134 + 7 * Math.sin(x * .021 + 1) + 4 * Math.sin(x * .067) + 2 * Math.sin(x * .19 + 2));
+    fill(c, '#1a2337', x, h, 1, 1); fill(c, '#101727', x, h + 1, 1, 176 - h);
+  }
+  for (let i = 0; i < 14; i++) {                 // wreck silhouettes on the mound line
+    const x = srand() * W | 0, w = 14 + srand() * 14 | 0, y = 126 + srand() * 10 | 0;
+    fill(c, '#0e1422', x, y, w, 7); fill(c, '#18213a', x, y, w, 1); fill(c, '#0a0f1a', x + 3, y + 2, w - 6, 2);
+  }
+  const cx = 330;                                // gantry crane with a scrap magnet
+  fill(c, '#141c2e', cx, 62, 5, 90);
+  for (let y = 64; y < 150; y += 6) fill(c, '#0c1120', cx + 1, y, 3, 3);
+  for (let i = 0; i < 96; i++) { const y = Math.round(64 - i * .12); fill(c, '#141c2e', cx - i, y, 1, 2); if (i % 6 === 0) fill(c, '#141c2e', cx - i, y + 2, 1, 2); }
+  fill(c, '#141c2e', cx + 5, 60, 14, 6); fill(c, '#0f1524', cx - 90, 54, 1, 38); fill(c, '#141c2e', cx - 95, 92, 11, 4);
+  fill(c, '#ff5a4a', cx + 2, 59, 2, 2);
+  for (const x of [70, 210]) { glow(c, x, 95, 8, '#2b3247', 6, .9); fill(c, '#121a2b', x, 96, 1, 50); fill(c, '#ffeeb0', x - 2, 94, 5, 2); }
+}
+const JUNK = [['#e0b13c', '#a87a1f', '#6b4c12'], ['#d7dce4', '#a3aab8', '#5f6676'], ['#4c6fd0', '#30489a', '#1d2c5e'],
+  ['#c8443e', '#8e2a2c', '#541819'], ['#4f9a62', '#336b43', '#1d3f27'], ['#3a3f4a', '#272b33', '#16181d'], ['#e07a3c', '#a5532a', '#5f2f19']];
+function slab(c, x, y, w, h, [lt, md, dk]) {    // one flattened wreck: floodlit top, crushed windows, tyres peeking out
+  fill(c, '#07080c', x - 1, y - 1, w + 2, h + 2);
+  fill(c, md, x, y, w, h); fill(c, lt, x, y, w, 2); fill(c, dk, x, y + h - 3, w, 3);
+  const wx = x + 6 + (srand() * 8 | 0), ww = w - 14 - (srand() * 10 | 0);
+  fill(c, '#10141c', wx, y + 3, ww, Math.max(2, h * .3 | 0)); fill(c, '#2c3a52', wx + 1, y + 3, Math.max(1, ww / 3 | 0), 1);
+  if (srand() < .6) for (const k of [.22, .78]) { const tx = x + w * k | 0; disc(c, tx, y + h, 4, '#0c0d10'); disc(c, tx, y + h, 2, '#3b3e46'); }
+  for (let i = 0; i < w * h / 40; i++) fill(c, dk, x + (srand() * w | 0), y + 2 + (srand() * (h - 4) | 0), 1, 1);
+}
+function stack(c, x, base, n) {
+  let y = base;
+  for (let i = 0; i < n; i++) {
+    const w = 60 + (srand() * 26 | 0), h = 12 + (srand() * 6 | 0);
+    y -= h + 1;
+    slab(c, x + (srand() * 12 - 6 | 0), y, w, h, JUNK[srand() * JUNK.length | 0]);
+  }
+  return y;
+}
+function paintMid() {
+  const W = Math.ceil(SW + (STAGE_W - SW) * .6), c = L.mid = layer(W);
+  const tops = [[-10, 5], [58, 4], [300, 3], [352, 5], [410, 4]].map(([x, n]) => [x, stack(c, x, 171, n)]);
+  fill(c, '#07080c', 111, 131, 94, 41);           // the blue shipping container from the promo yard
+  fill(c, '#2b4f8c', 112, 132, 92, 39);
+  for (let i = 114; i < 203; i += 4) fill(c, '#1f3b6b', i, 134, 1, 35);
+  fill(c, '#4a72b8', 112, 132, 92, 2); fill(c, '#16294a', 112, 168, 92, 3);
+  fill(c, '#17305a', 186, 135, 1, 33); fill(c, '#17305a', 194, 135, 1, 33);
+  text(c, 'YARD 07', 124, 146, '#8aa0c8', 1, '#16294a');
+  for (const x of [222, 286]) {                  // floodlight masts framing the car
+    glow(c, x + 1, 47, 22, '#262c3f', 16, 1);
+    fill(c, '#161a24', x, 46, 2, 125); fill(c, '#0c0e14', x - 6, 43, 14, 5); fill(c, '#fff8df', x - 5, 44, 12, 2);
+  }
+  const img = c.getImageData(0, 150, W, 22), d = img.data;   // stack bases fall into shadow
+  for (let y = 0; y < 22; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    if (d[i + 3] && bay(x, y) < y * .8) for (let k = 0; k < 3; k++) d[i + k] *= .55;
+  }
+  c.putImageData(img, 0, 150);
+  for (const [k, dx, face] of [[1, 34, 1], [3, 20, -1], [4, 40, -1]]) DOGS.push({ x: tops[k][0] + dx, y: tops[k][1] - 1, face, ph: DOGS.length * 23 });
+}
+function paintGround() {
+  const c = L.ground = layer(STAGE_W);
+  grad(c, 0, STAGE_W, [[166, '#0f0f13'], [174, '#1a191f'], [192, '#232128'], [224, '#2c2a30']]);
+  glow(c, 256, 197, 170, '#35323a', 20, 1.1);     // floodlit patch around the car
+  for (let x = 0; x < STAGE_W; x += 3) { const y = Math.round(213 + Math.sin(x * .012) * 4); fill(c, '#1e1c22', x, y, 2, 1); fill(c, '#1e1c22', x + 1, y + 6, 2, 1); }
+  for (let i = 0; i < 10; i++) disc(c, srand() * STAGE_W | 0, 180 + srand() * 40 | 0, 4 + srand() * 9 | 0, '#17161b', 1 + srand() * 2 | 0);
+  for (const [x, y, w] of [[96, 215, 26], [410, 209, 34], [306, 220, 18]]) { disc(c, x, y, w, '#18213a', 2); fill(c, '#4f6290', x - (w >> 1), y, w / 3 | 0, 1); }
+  for (let i = 0; i < 260; i++) fill(c, srand() > .5 ? '#3d3a41' : '#151419', srand() * STAGE_W | 0, 168 + srand() * 56 | 0, 1, 1);
+  for (let i = 0; i < 3; i++) {                  // tyre stack
+    const y = 196 - i * 7;
+    fill(c, '#060608', 21, y - 1, 28, 9); fill(c, '#141417', 22, y, 26, 7); fill(c, '#2a2a30', 22, y, 26, 1); fill(c, '#0b0b0d', 26, y + 3, 18, 1);
+  }
+  disc(c, 62, 195, 9, '#060608'); disc(c, 62, 195, 8, '#141417'); disc(c, 62, 195, 4, '#25232a'); fill(c, '#2a2a30', 56, 188, 5, 1);
+  for (const x of [462, 478]) {                  // rusty drums
+    fill(c, '#060608', x - 1, 182, 16, 23); fill(c, '#7a2c22', x, 183, 14, 21); fill(c, '#a5442f', x + 2, 183, 3, 21);
+    for (const y of [183, 192, 202]) fill(c, '#4a1a16', x, y, 14, 1);
+    fill(c, '#5c211b', x, 183, 14, 2);
+  }
+}
+paintSky(); paintFar(); paintMid(); paintGround();
+
+// ════════ sound: everything synthesised with WebAudio, started on the first key press or tap ════════
+let AC = null, master = null, NOISE = null, muted = false;
+function audioOn() {
+  if (!AC) {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    AC = new C(); master = AC.createGain(); master.gain.value = .5; master.connect(AC.destination);
+    NOISE = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+    const d = NOISE.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (AC.state === 'suspended') AC.resume();
+}
+function envGain(t, vol, dur) {
+  const g = AC.createGain();
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  g.connect(master);
+  return g;
+}
+function beep(type, f0, f1, dur, vol, at = 0) {
+  const t = AC.currentTime + at, o = AC.createOscillator();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  o.connect(envGain(t, vol, dur)); o.start(t); o.stop(t + dur + .02);
+}
+function hiss(dur, vol, type, freq, q = 1, at = 0) {
+  const t = AC.currentTime + at, s = AC.createBufferSource(), f = AC.createBiquadFilter();
+  s.buffer = NOISE; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  s.connect(f); f.connect(envGain(t, vol, dur)); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+}
+function sfx(kind, k = 1) {
+  if (!AC || muted) return;
+  if (kind === 'hit') { beep('sine', 150, 45, .14, .5 * k); hiss(.09, .3 * k, 'bandpass', 1700, 1.1); }
+  if (kind === 'metal') { beep('square', 523, 500, .22, .1); beep('square', 789, 760, .2, .07); hiss(.16, .22, 'highpass', 2500, .7); }
+  if (kind === 'glass') { for (let i = 0; i < 4; i++) hiss(.06, .2, 'highpass', 4000, .5, i * .035); for (let i = 0; i < 5; i++) beep('sine', 2500 + Math.random() * 3000, 2000, .05, .04, Math.random() * .15); }
+  if (kind === 'swing') hiss(.07, .05, 'bandpass', 900, .8);
+  if (kind === 'land') beep('sine', 90, 40, .08, .25);
+  if (kind === 'tick') beep('square', 990, 990, .05, .07);
+  if (kind === 'count') beep('square', 1320, 1320, .03, .04);
+  if (kind === 'go') { beep('square', 660, 660, .12, .1); beep('square', 990, 990, .25, .1, .14); }
+  if (kind === 'win') [523, 659, 784, 1047].forEach((f, i) => beep('square', f, f, .14, .08, i * .11));
+  if (kind === 'over') [392, 330, 262].forEach((f, i) => beep('triangle', f, f * .98, .25, .16, i * .22));
+}
+
+// ════════ effects. World coords: x along the stage, y up from the ground ════════
+const fx = [], flowers = [], debris = [];
+const P_SPARK = ['#ffffff', '#fff3b0', '#ffd34a', '#ff9a3a', '#c4501c'];
+const P_GLASS = ['#ffffff', '#cfeaf7', '#9fd3ea', '#5486ad'];
+function burst(x, y, n, sp, up, g, life, pal) {
+  for (let i = 0; i < n; i++) fx.push({ k: 'p', x, y, vx: (Math.random() - .5) * sp, vy: Math.random() * up, g, t: 0, life: life * (.6 + Math.random() * .8) | 0, pal });
+}
+const sparks = (x, y, n = 6) => burst(x, y, n, 4, 3, .18, 30, P_SPARK);
+const glassBurst = (x, y, n = 14) => burst(x, y, n, 4, 3.5, .22, 50, P_GLASS);
+const chips = (x, y, n) => burst(x, y, n, 3.5, 3, .25, 40, PAINTS[car.paint].slice(1, 4));
+const smoke = (x, y) => fx.push({ k: 'm', x, y, vx: (Math.random() - .5) * .3, vy: .35 + Math.random() * .3, g: 0, t: 0, life: 70 });
+const ring = (x, y) => fx.push({ k: 'r', x, y, t: 0, life: 12 });
+const hitSpark = (x, y, big) => fx.push({ k: 'h', x, y, t: 0, life: big ? 10 : 7, big, a: Math.random() });
+function flowerBurst() {                         // 打铁花: molten iron flung up behind the stacks
+  const x = Math.random() * SW, y = 70 + Math.random() * 30;
+  for (let i = 0; i < 24; i++) {
+    const a = Math.PI / 2 + (Math.random() - .5) * 1.4, v = 2 + Math.random() * 2.6;
+    flowers.push({ x, y, vx: Math.cos(a) * v * .7, vy: Math.sin(a) * v, t: 0, life: 50 + Math.random() * 40 | 0 });
+  }
+}
+function stepFx() {
+  for (const list of [fx, flowers]) for (let i = list.length - 1; i >= 0; i--) {
+    const p = list[i];
+    if (++p.t >= p.life) { list.splice(i, 1); continue; }
+    if (p.vy === undefined) continue;             // rings and hit sparks stay put
+    p.vy -= p.g ?? .1; p.x += p.vx; p.y += p.vy;
+    if (p.k === 'p' && p.y < 0) { p.y = 0; p.vy *= -.35; p.vx *= .6; }
+  }
+  for (const d of debris) {
+    if (d.rest) continue;
+    d.vy -= .32; d.x += d.vx; d.y += d.vy; d.rot += d.vr;
+    if (d.x < 8 || d.x > STAGE_W - 8) { d.x = Math.max(8, Math.min(STAGE_W - 8, d.x)); d.vx *= -.5; }
+    if (d.y < d.s.r) {
+      d.y = d.s.r;
+      if (d.vy < -1.4) { d.vy *= -.35; d.vx *= .6; d.vr *= .5; }
+      else {
+        d.vy = 0; d.vx *= .85;
+        if (d.wheel) d.vr = -d.vx / WR; else d.rot += (Math.round(d.rot / Math.PI) * Math.PI - d.rot) * .3;
+        if (Math.abs(d.vx) < .05) d.rest = true;
+      }
+    }
+  }
+}
+function fling(k, x, y, vy, sp = 1) {            // a panel comes off the car and flies outward off its end
+  const dirx = Math.sign(x - car.x) || Math.sign(x - hero.x) || 1;
+  debris.push({ s: k === 'wheel' ? WHEEL : PARTS[k], x, y, vx: dirx * (1.5 + Math.random() * 1.5) * sp, vy, rot: 0, vr: dirx * (.08 + Math.random() * .12), wheel: k === 'wheel' });
+}
+
+// ════════ input: numpad directions (5 = neutral), relative to facing ════════
+const relDir = (d, face) => face > 0 ? d : d + (d % 3 === 1 ? 2 : d % 3 === 0 ? -2 : 0);   // its own inverse
+function motion(h, seq, win = 18) {              // lenient: seq must appear in order within the window
+  let k = seq.length - 1;
+  for (let i = h.length - 1; i >= Math.max(0, h.length - win); i--) if (h[i] === seq[k] && --k < 0) return true;
+  return false;
+}
+function special(f, btn) {
+  for (const b of btn) {
+    if (b[1] === 'K' && motion(f.hist, [6, 2, 3])) return 'TFF' + b[0];
+    if (b[1] === 'P' && motion(f.hist, [2, 3, 6])) return 'BENG' + b[0];
+    if (b[1] === 'K' && motion(f.hist, [2, 1, 4])) return 'XFT' + b[0];
+  }
+  return null;
+}
+const KEYS = { KeyA: 'L', ArrowLeft: 'L', KeyD: 'R', ArrowRight: 'R', KeyW: 'U', ArrowUp: 'U', KeyS: 'D', ArrowDown: 'D',
+  KeyU: 'LP', KeyI: 'MP', KeyO: 'HP', KeyJ: 'LK', KeyK: 'MK', KeyL: 'HK', Enter: 'START', Space: 'START' };
+const held = {}, queued = new Set();
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === 'KeyM') { toggleSound(); return; }
+  const k = KEYS[e.code];
+  if (!k) return;
+  e.preventDefault(); audioOn();
+  if (k.length === 1) held[k] = true; else if (!e.repeat) press(k);
+});
+addEventListener('keyup', e => { const k = KEYS[e.code]; if (k && k.length === 1) held[k] = false; });
+addEventListener('blur', () => { for (const k in held) held[k] = false; });
+function keyInput() {
+  const x = (held.R ? 1 : 0) - (held.L ? 1 : 0), y = (held.U ? 1 : 0) - (held.D ? 1 : 0), btn = new Set(queued);
+  queued.clear();
+  return { dir: 5 + x + 3 * y, btn };
+}
+
+// ════════ the robot ════════
+const GRAV = .42, JUMP_V = 8, HW = 11;
+const hero = { x: 120, y: 0, vx: 0, vy: 0, face: 1, air: false, onCar: false, hist: [], usedAir: false, jdir: 0, blink: 90, eyes: 'open', canHit: false };
+const cur = f => f.mv.f[f.fi];
+function play(f, key) { f.key = key; f.mv = MOVES[key]; f.fi = 0; enter(f); }
+function enter(f) {
+  const [pose, n, ex = {}] = cur(f);
+  f.ft = n; f.canHit = !!ex.hit;
+  if (ex.vy !== undefined) { f.vy = ex.vy; f.air = true; f.onCar = false; }
+  if (ex.vx !== undefined) f.vx = ex.vx * f.face;
+  if (ex.fx === 'ring') { const [hx, hy] = SPR[pose].S.nArm.end; ring(f.x + (hx + 5) * f.face, f.y + hy); }
+  if (ex.hit) sfx('swing');
+}
+function update(f, inp) {
+  const ax = (inp.dir - 1) % 3 - 1;
+  if (f.onCar && !f.mv.act && ax) f.face = ax;    // on the roof you face the way you walk
+  if (inp.btn.size) f.buf = { b: [...inp.btn], t: 8 };    // short input buffer: presses during recovery still come out
+  const rel = relDir(inp.dir, f.face), btn = f.buf && f.buf.t-- > 0 ? f.buf.b : [];
+  f.hist.push(rel);
+  if (f.hist.length > 30) f.hist.shift();
+  if (!f.mv.act) {
+    if (state === 'end' || state === 'tally' || state === 'done') { if (!f.air) play(f, perfect ? 'WIN' : 'LOSE'); }
+    else {
+      const sp = btn.length ? special(f, btn) : null, b = btn[0];
+      if (sp) { f.hist.length = 0; f.buf = null; play(f, sp); }
+      else if (b) { f.buf = null; play(f, rel <= 3 ? (b[1] === 'P' ? 'cP' : 'cK') : rel === 6 ? (b[1] === 'P' ? 'ELB' : 'KNEE') : b); }
+      else if (rel >= 7) { f.jdir = rel === 9 ? 1 : rel === 7 ? -1 : 0; play(f, 'jsq'); }
+      else if (rel <= 3) { if (f.key !== 'crouch') play(f, 'crouch'); }
+      else if (rel === 6) { if (f.key !== 'walk') play(f, 'walk'); f.x += 1.6 * f.face; }
+      else if (rel === 4) { if (f.key !== 'back') play(f, 'back'); f.x -= 1.3 * f.face; }
+      else if (f.key !== 'idle') play(f, 'idle');
+    }
+  } else if (f.key === 'jump' && btn.length && !f.usedAir) {
+    f.usedAir = true; f.buf = null;
+    play(f, btn[0][1] === 'P' ? (rel <= 3 ? 'jE' : 'jP') : rel <= 3 ? 'jS' : 'jK');
+  }
+  if (--f.ft <= 0) {                              // animation clock
+    if (++f.fi < f.mv.f.length) enter(f);
+    else if (f.mv.loop) { f.fi = 0; enter(f); }
+    else if (f.key === 'jsq') { play(f, 'jump'); f.air = true; f.onCar = false; f.vy = JUMP_V; f.vx = f.jdir * 2.1 * f.face; }
+    else if (f.air) { f.fi--; f.ft = 1; }         // hold the last pose until landing
+    else play(f, f.mv.crouch ? 'crouch' : 'idle');
+  }
+  const [pose, , ex = {}] = cur(f), py = f.y;
+  if (ex.dx) f.x += ex.dx * f.face;
+  if (ex.fx === 'sparks') { const [sx, sy] = SPR[pose].S.fLeg.end; sparks(f.x + sx * f.face * (ex.flip ? -1 : 1), f.y + sy, 4); }
+  if (f.air) { f.vy -= ex.hover ? .1 : GRAV; f.y += f.vy; f.x += f.vx; }
+  collide(f, py);
+  if (!f.mv.act && !f.air && !f.onCar) { const want = car.x > f.x ? 1 : -1; if (want !== f.face && Math.abs(car.x - f.x) > 8) f.face = want; }
+  if (--f.blink < 0) f.blink = 150 + Math.random() * 150 | 0;
+  f.eyes = f.mv.face || (f.blink < 7 ? 'blink' : 'open');
+}
+const topUnder = x => Math.max(carTop(x - HW - car.x), carTop(x - car.x), carTop(x + HW - car.x));
+function collide(f, py) {                         // the car is a wall from the side and a platform from above
+  const top = topUnder(f.x);
+  if (f.air) {
+    if (top >= 0 && f.vy <= 0 && py >= top - 2 && f.y <= top) land(f, top, true);
+    else if (top >= 0 && f.y < top - 2) pushOut(f);
+    else if (f.y <= 0) land(f, 0, false);
+  } else if (f.onCar) {
+    if (top < 0) { f.onCar = false; f.air = true; f.vy = f.vx = 0; if (!f.mv.act) { play(f, 'jump'); f.fi = 2; f.ft = 999; } }
+    else f.y = top;
+  } else if (top > 6) pushOut(f);
+  f.x = Math.max(16, Math.min(STAGE_W - 16, f.x));
+}
+function land(f, y, onCar) {
+  f.y = y; f.vy = f.vx = 0; f.air = f.usedAir = false; f.onCar = onCar;
+  play(f, 'land'); sfx('land');
+}
+function pushOut(f) {
+  const left = car.x - 89 - HW - .5, right = car.x + 89 + HW + .5;
+  f.x = f.x - left < right - f.x ? left : right;   // keep vx: a jump that starts at the bumper still carries over it
+}
+function resetHero() {
+  Object.assign(hero, { x: 120, y: 0, vx: 0, vy: 0, face: 1, air: false, onCar: false, hist: [], usedAir: false, buf: null });
+  play(hero, 'idle');
+}
+
+// ════════ hitting the car ════════
+function resetCar() {
+  car.paint = (car.paint + 1) % PAINTS.length; car.rgb = paintRGB(car.paint);
+  Object.assign(car, { hp: { rear: 0, cabin: 0, front: 0 }, lv: { rear: 0, cabin: 0, front: 0 }, dents: [], cracks: [], gone: new Set(), shake: 0, by: 0, bv: 0, dirty: true });
+  for (const k of ['bumperF', 'bumperR', 'mirror', 'hood', 'trunk', 'doorF', 'doorR']) PARTS[k] = partSprite(k);
+}
+function hitCheck(f) {
+  const [, , ex = {}] = cur(f);
+  if (!ex.hit || !f.canHit) return;
+  const [x0, y0, x1, y1] = ex.hit, hx0 = f.face > 0 ? f.x + x0 : f.x - x1, hx1 = f.face > 0 ? f.x + x1 : f.x - x0;
+  const roof = carShape().roof;
+  let best = null, area = 0;
+  for (const z in ZONES) {
+    const [a, b, c, d] = ZONES[z], top = z === 'cabin' ? roof + 4 : d;
+    const w = Math.min(hx1, car.x + c) - Math.max(hx0, car.x + a), h = Math.min(f.y + y1, top) - Math.max(f.y + y0, b);
+    if (w > 0 && h > 0 && w * h > area) {
+      area = w * h;
+      best = [z, (Math.max(hx0, car.x + a) + Math.min(hx1, car.x + c)) / 2 - car.x, (Math.max(f.y + y0, b) + Math.min(f.y + y1, top)) / 2];
+    }
+  }
+  if (!best) return;
+  f.canHit = false;
+  hitCar(...best, ex.dmg);
+}
+function hitCar(z, cx, cy, dmg) {
+  const heavy = dmg >= 10;
+  freeze = heavy ? 10 : dmg >= 6 ? 7 : 5;
+  car.shake = freeze + 2; car.bv += heavy ? 1.6 : .8;          // body dips on its springs
+  if (heavy && !calm) quake = 8;
+  if (heavy) cheer = Math.max(cheer, 40);
+  hitSpark(car.x + cx, cy, heavy);
+  sfx('hit', heavy ? 1 : .7);
+  if (car.lv[z] > 2) { sparks(car.x + cx, cy, 5); return; }      // already wrecked there: only sparks
+  car.hp[z] = Math.min(ZHP[z], car.hp[z] + dmg);
+  if (z !== 'cabin') car.hp.cabin = Math.min(ZHP.cabin, car.hp.cabin + dmg * .35);
+  score += dmg * 50;
+  const top = carTop(cx);
+  if (car.dents.length < 40 && top > 14) car.dents.push({ x: cx + (Math.random() - .5) * 6, y: Math.max(14, Math.min(cy, top - 4)), r: heavy ? 5 : 3.5 });
+  chips(car.x + cx, cy, heavy ? 8 : 4);
+  for (const k in ZONES) {
+    const lv = Math.min(3, Math.floor(car.hp[k] / ZHP[k] * 3 + 1e-9));
+    while (car.lv[k] < lv) breakPart(k, ++car.lv[k]);
+  }
+  car.dirty = true;
+  if (car.lv.rear + car.lv.cabin + car.lv.front === 9) endRound(true);
+}
+function breakPart(z, lv) {
+  const X = car.x, out = k => car.gone.add(k);
+  score += 1000; sfx('metal');
+  if (z === 'front') {
+    if (lv === 1) { glassBurst(X + 86, 29, 10); sfx('glass'); }
+    if (lv === 2) { out('bumperF'); fling('bumperF', X + 88, 17, 3); }
+    if (lv === 3) { fling('hood', X + 60, 37, 6); out('wheelfront'); fling('wheel', X + WHEELS.front, WR, 4); }
+  }
+  if (z === 'rear') {
+    if (lv === 1) { glassBurst(X - 86, 31, 10); sfx('glass'); }
+    if (lv === 2) { out('bumperR'); fling('bumperR', X - 88, 17, 3); }
+    if (lv === 3) { fling('trunk', X - 72, 38, 5); out('wheelrear'); fling('wheel', X + WHEELS.rear, WR, 4); }
+  }
+  if (z === 'cabin') {
+    sfx('glass');
+    if (lv === 1) for (let i = 0; i < 4; i++) {
+      const w = i & 1, x = w ? 4 + Math.random() * 20 : -40 + Math.random() * 26, y = 42 + Math.random() * 10;
+      car.cracks.push({ w, x, y, rays: Array.from({ length: 5 }, (_, r) => { const a = r * 1.257 + Math.random() * .6, l = 4 + Math.random() * 6; return [Math.cos(a) * l, Math.sin(a) * l]; }) });
+    }
+    if (lv === 2) { glassBurst(X, 47, 34); out('mirror'); fling('mirror', X + 33, 41, 5); }
+    if (lv === 3) { fling('doorF', X + 14, 24, 4.5, 1.9); fling('doorR', X - 28, 24, 5, 1.9); }
+  }
+}
+
+// ════════ round flow: title → ready → play → end → tally → done ════════
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ROUND = 45 * 60;
+let state = 'title', st = 0, timer = ROUND, score = 0, hi = 0, bonus = 0, bonusTotal = 0, perfect = false;
+let freeze = 0, quake = 0, cheer = 0, camX = 0, frame = 0, showBox = false, touchMode = false;
+try { hi = +localStorage.getItem('h2x-hi') || 0; } catch { /* storage blocked: no high score */ }
+function newRound() {
+  resetCar(); resetHero();
+  fx.length = flowers.length = debris.length = 0;
+  score = 0; timer = ROUND; perfect = false; state = 'ready'; st = 0;
+  camera(true);
+}
+function endRound(win) {
+  if (state !== 'play') return;
+  state = 'end'; st = 0; perfect = win;
+  bonusTotal = bonus = win ? Math.ceil(timer / 60) * 500 + 10000 : 0;
+  sfx(win ? 'win' : 'over');
+  if (win) cheer = 240;
+}
+function press(b) {
+  if (state === 'title' || (state === 'done' && st > 30)) { newRound(); return; }
+  if (state === 'play' && b !== 'START') queued.add(b);
+}
+function camera(snap) {                           // keep both the robot and the car in view
+  const want = Math.max(0, Math.min(STAGE_W - SW, hero.x - SW / 2 + (car.x - hero.x) * .4));
+  camX = snap ? want : camX + (want - camX) * .15;
+}
+function step() {
+  frame++;
+  stepFx();
+  if (quake > 0) quake--;
+  if (cheer > 0) cheer--;
+  if (perfect && state !== 'play' && frame % 6 === 0) flowerBurst();
+  if (freeze > 0) { freeze--; return; }           // hit-stop
+  if (car.shake > 0) car.shake--;
+  car.bv += -car.by * .3 - car.bv * .25; car.by += car.bv;
+  if (car.lv.front > 1 && frame % (car.lv.front > 2 ? 5 : 9) === 0) smoke(car.x + 60 + Math.random() * 8, 34);
+  if (perfect && frame % 7 === 0) smoke(car.x + (Math.random() - .5) * 120, 30);
+  st++;
+  if (state === 'ready') { if (st === 50) sfx('go'); if (st >= 90) { state = 'play'; st = 0; } }
+  else if (state === 'play') { if (--timer <= 0) { timer = 0; endRound(false); } else if (timer <= 600 && timer % 60 === 0) sfx('tick'); }
+  else if (state === 'end') { if (st >= 150) { state = 'tally'; st = 0; } }
+  else if (state === 'tally') {
+    if (bonus > 0) { const k = Math.min(bonus, 250); bonus -= k; score += k; if (frame % 3 === 0) sfx('count'); }
+    else { state = 'done'; st = 0; if (score > hi) { hi = score; try { localStorage.setItem('h2x-hi', hi); } catch { /* ignore */ } } }
+  }
+  if (state === 'play') { update(hero, keyInput()); hitCheck(hero); }
+  else { queued.clear(); update(hero, { dir: 5, btn: new Set() }); }
+  camera();
+}
+
+// ════════ drawing ════════
+const cv = document.getElementById('screen'), ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+function pline(x0, y0, x1, y1) {                  // Bresenham line in the current fillStyle
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  for (let e = dx + dy, n = 0; n < 64; n++) {
+    ctx.fillRect(x0, y0, 1, 1);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * e;
+    if (e2 >= dy) { e += dy; x0 += sx; }
+    if (e2 <= dx) { e += dx; y0 += sy; }
+  }
+}
+function drawCar() {
+  if (car.dirty) bakeCar();
+  const sx = Math.round(car.x - camX) + (car.shake ? (car.shake & 2 ? 2 : -2) : 0), by = Math.round(car.by);
+  ctx.fillStyle = '#0b0b0f';
+  for (let r = -3; r <= 2; r++) { const hw = Math.round(94 * Math.sqrt(1 - (r / 4) ** 2)); ctx.fillRect(sx - hw, GROUND + r, hw * 2, 1); }
+  for (const k in WHEELS) if (!car.gone.has('wheel' + k)) ctx.drawImage(WHEEL.cv, sx + WHEELS[k] + WHEEL.dx, GROUND - WR + WHEEL.dy);
+  ctx.drawImage(car.spr.cv, sx + car.spr.dx, GROUND + by + car.spr.dy);
+}
+function drawDebris(resting) {                    // settled panels sit behind the car, flying ones in front
+  for (const d of debris) {
+    if (!d.rest !== !resting) continue;
+    ctx.save(); ctx.translate(Math.round(d.x - camX), Math.round(GROUND - d.y)); ctx.rotate(-d.rot);
+    ctx.drawImage(d.s.cv, d.s.dx, d.s.dy); ctx.restore();
+  }
+}
+function drawDogs(ox) {
+  for (const d of DOGS) {
+    const hop = cheer > 0 && (cheer + d.ph) % 18 < 9, s = hop ? DOG.hop : (frame + d.ph * 3) % 100 < 70 ? DOG.sit : DOG.look;
+    ctx.save(); ctx.translate(Math.round(d.x + ox), d.y - (hop ? 3 : 0));
+    if (d.face < 0) ctx.scale(-1, 1);
+    ctx.drawImage(s.cv, s.dx, s.dy); ctx.restore();
+  }
+}
+function drawShadow(f) {
+  const t = topUnder(f.x), base = t >= 0 && f.y >= t - 2 ? t : 0;
+  const w = Math.round(22 * Math.max(.4, 1 - (f.y - base) / 120)), x = Math.round(f.x - camX), y = GROUND - Math.round(base);
+  ctx.fillStyle = base ? PAINTS[car.paint][4] : '#0d0d11';
+  for (let r = -2; r <= 2; r++) { const hw = Math.round(w * Math.sqrt(1 - (r / 3) ** 2)); ctx.fillRect(x - hw, y + r - 1, hw * 2, 1); }
+}
+function drawFighter(f) {
+  const [pose, , ex = {}] = cur(f), s = SPR[pose];
+  ctx.save();
+  ctx.translate(Math.round(f.x - camX), Math.round(GROUND - f.y));
+  if ((ex.flip ? -f.face : f.face) < 0) ctx.scale(-1, 1);
+  ctx.drawImage(s.cv, s.dx, s.dy);
+  drawEyes(ctx, s, f.eyes, 0, 0);
+  ctx.restore();
+}
+function drawFx() {
+  for (const p of fx) {
+    const sx = Math.round(p.x - camX), sy = Math.round(GROUND - p.y), u = p.t / p.life;
+    if (p.k === 'p') { ctx.fillStyle = p.pal[Math.min(p.pal.length - 1, u * p.pal.length | 0)]; ctx.fillRect(sx, sy, u < .3 ? 2 : 1, 1); }
+    else if (p.k === 'm') {
+      const r = 2 + p.t * .08 | 0;
+      ctx.fillStyle = u < .5 ? '#5b5f6c' : '#3a3d47';
+      for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r && ((x + y + p.t) & 1) === 0) ctx.fillRect(sx + x, sy + y, 1, 1);
+    } else if (p.k === 'r') {
+      ctx.fillStyle = p.t < 4 ? '#ffffff' : '#5ef2ff';
+      const rx = 1 + p.t * .6, ry = 3 + p.t * 1.6;
+      for (let a = 0; a < 48; a++) ctx.fillRect(Math.round(sx + Math.cos(a / 7.64) * rx), Math.round(sy + Math.sin(a / 7.64) * ry), 1, 1);
+    } else if (p.k === 'h') {                     // hit spark: white flash, then eight rays that burn out
+      const s = p.big ? 1.5 : 1;
+      if (p.t < 2) { ctx.fillStyle = '#ffffff'; for (let y = -3; y <= 3; y++) { const hw = Math.round(Math.sqrt(9 - y * y) * s); ctx.fillRect(sx - hw, sy + y, hw * 2 + 1, 1); } }
+      ctx.fillStyle = u < .3 ? '#ffffff' : u < .6 ? '#ffe066' : '#ff9a3a';
+      for (let i = 0; i < 8; i++) {
+        const a = p.a * 6 + i * Math.PI / 4, r0 = (2 + p.t * 2) * s, r1 = r0 + (i & 1 ? 4 : 7) * s * (1 - u * .5);
+        pline(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0, sx + Math.cos(a) * r1, sy + Math.sin(a) * r1);
+      }
+    }
+  }
+}
+function drawFlowers() {
+  for (const p of flowers) { const u = p.t / p.life; ctx.fillStyle = P_SPARK[Math.min(4, u * 5 | 0)]; ctx.fillRect(Math.round(p.x), Math.round(GROUND - p.y), u < .25 ? 2 : 1, 1); }
+}
+function drawBoxes(f) {
+  const rect = (col, x0, y0, x1, y1) => { ctx.strokeStyle = col; ctx.strokeRect(Math.round(x0 - camX) + .5, GROUND - y1 + .5, x1 - x0 - 1, y1 - y0 - 1); };
+  for (const z in ZONES) { const [a, b, c, d] = ZONES[z]; rect('#ffe066', car.x + a, b, car.x + c, z === 'cabin' ? carShape().roof + 4 : d); }
+  const [, , ex = {}] = cur(f);
+  if (ex.hit) { const [x0, y0, x1, y1] = ex.hit; rect('#ff2a6d', f.face > 0 ? f.x + x0 : f.x - x1, f.y + y0, f.face > 0 ? f.x + x1 : f.x - x0, f.y + y1); }
+  ctx.fillStyle = '#ff2a6d';
+  ctx.fillRect(Math.round(f.x - camX) - 2, Math.round(GROUND - f.y), 5, 1);
+}
+const center = (s, y, col, k) => text(ctx, s, (SW - textW(s, k)) >> 1, y, col, k);
+const SHADE = layer(SW);                          // 50% checkerboard dim behind the results text
+for (let y = 0; y < SH; y++) for (let x = y & 1; x < SW; x += 2) fill(SHADE, '#04050a', x, y, 1, 1);
+function hud() {
+  text(ctx, 'SCORE', 10, 6, '#8d95aa'); text(ctx, String(score), 10, 16, '#e6ecf4');
+  const T = String(Math.ceil(timer / 60)).padStart(2, '0'), H = String(Math.max(hi, score));
+  center('TIME', 6, '#8d95aa', 1);
+  center(T, 16, timer <= 600 && state === 'play' && frame % 30 < 15 ? '#ff7b6b' : '#ffe066', 2);
+  text(ctx, 'HI', SW - 10 - textW('HI'), 6, '#8d95aa'); text(ctx, H, SW - 10 - textW(H), 16, '#e6ecf4');
+}
+function messages() {
+  const blink = frame % 60 < 40;
+  if (state === 'title') {
+    center('BONUS STAGE', 64, '#ffe066', 2); center('SMASH THE CAR', 86, '#e6ecf4', 1);
+    if (blink) center(touchMode ? 'TAP TO START' : 'PRESS START', 102, '#5ef2ff', 1);
+  }
+  if (state === 'ready') center(st < 50 ? 'READY' : 'GO!', 66, st < 50 ? '#e6ecf4' : '#5ef2ff', 3);
+  if (state === 'end') center(perfect ? 'PERFECT!' : 'TIME OVER', 38, perfect ? '#ffe066' : '#ff7b6b', 3);
+  if (state === 'tally' || state === 'done') {
+    center(perfect ? 'PERFECT!' : 'TIME OVER', 44, perfect ? '#ffe066' : '#ff7b6b', 2);
+    if (perfect) center('TIME BONUS ' + bonusTotal, 70, '#e6ecf4', 1);
+    center('SCORE ' + score, 82, '#e6ecf4', 1);
+    if (state === 'done' && st > 30 && blink) center(touchMode ? 'TAP TO RETRY' : 'PRESS START', 100, '#5ef2ff', 1);
+  }
+}
+function render() {
+  const qx = quake ? (quake & 2 ? 2 : -2) : 0, qy = quake ? (quake & 4 ? 1 : -1) : 0;
+  ctx.fillStyle = '#04050a'; ctx.fillRect(0, 0, SW, SH);
+  ctx.save(); ctx.translate(qx, qy);
+  ctx.drawImage(L.sky.canvas, 0, 0);
+  ctx.drawImage(L.far.canvas, -Math.round(camX * .3), 0);
+  drawFlowers();
+  ctx.drawImage(L.mid.canvas, -Math.round(camX * .6), 0);
+  drawDogs(-Math.round(camX * .6));
+  ctx.drawImage(L.ground.canvas, -Math.round(camX), 0);
+  drawDebris(true); drawCar(); drawDebris(false); drawShadow(hero); drawFighter(hero); drawFx();
+  if (showBox) drawBoxes(hero);
+  ctx.restore();
+  if (state === 'tally' || state === 'done') ctx.drawImage(SHADE.canvas, 0, 0);
+  hud(); messages();
+}
+
+// ════════ page wiring: buttons, touch pad, sizing ════════
+const $ = id => document.getElementById(id);
+function toggleSound() { muted = !muted; $('bSound').setAttribute('aria-pressed', !muted); if (!muted) audioOn(); }
+$('bSound').onclick = toggleSound;
+$('bBox').onclick = e => { showBox = !showBox; e.currentTarget.setAttribute('aria-pressed', showBox); };
+$('bSheet').onclick = e => {
+  const b = $('sheetBox'), on = b.hidden;
+  b.hidden = !on; e.currentTarget.setAttribute('aria-pressed', on);
+  if (on) buildSheet();
+};
+cv.addEventListener('pointerdown', () => { audioOn(); press('START'); });
+const pad = $('pad'), stick = $('stick'), knob = $('knob');
+function enableTouch() { if (touchMode) return; touchMode = true; document.body.classList.add('touch'); pad.hidden = false; fit(); }
+addEventListener('touchstart', enableTouch, { passive: true });
+let stickId = null;
+function moveStick(e) {                           // 8-way stick with a dead zone
+  const r = stick.getBoundingClientRect(), dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2;
+  const d = Math.hypot(dx, dy), k = Math.min(1, (r.width / 2 - 24) / (d || 1));
+  knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+  held.L = held.R = held.U = held.D = false;
+  if (d < r.width * .14) return;
+  const o = Math.round(Math.atan2(-dy, dx) / (Math.PI / 4)) + 4;
+  const X = [-1, -1, 0, 1, 1, 1, 0, -1, -1][o], Y = [0, -1, -1, -1, 0, 1, 1, 1, 0][o];
+  held.R = X > 0; held.L = X < 0; held.U = Y > 0; held.D = Y < 0;
+}
+stick.addEventListener('pointerdown', e => {
+  e.preventDefault(); audioOn(); stickId = e.pointerId;
+  try { stick.setPointerCapture(e.pointerId); } catch { /* finger already gone */ }
+  moveStick(e);
+});
+stick.addEventListener('pointermove', e => { if (e.pointerId === stickId) moveStick(e); });
+for (const t of ['pointerup', 'pointercancel']) stick.addEventListener(t, e => {
+  if (e.pointerId !== stickId) return;
+  stickId = null; held.L = held.R = held.U = held.D = false; knob.style.transform = '';
+});
+const SP = { BENG: [[2, 3, 6], 'MP'], XFT: [[2, 1, 4], 'MK'], TFF: [[6, 2, 3], 'MK'] };   // one-tap specials for thumbs
+for (const b of pad.querySelectorAll('button')) {
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); audioOn(); b.classList.add('on');
+    const sp = SP[b.dataset.sp];
+    if (sp && state === 'play') hero.hist.push(...sp[0]);
+    press(sp ? sp[1] : b.dataset.b);
+  });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(t, () => b.classList.remove('on'));
+}
+function fit() {
+  const vw = document.documentElement.clientWidth - 32, vh = innerHeight - 24;
+  let w;
+  if (touchMode && innerWidth > innerHeight && innerHeight < 520) w = Math.min(vh * SW / SH, innerWidth - 128 - 184 - 56);
+  else if (touchMode) w = Math.min(vw, (vh - 190) * SW / SH);
+  else { w = Math.min(vw, (vh - 150) * SW / SH); if (w >= SW) w = Math.floor(w / SW) * SW; }
+  cv.style.width = Math.max(200, Math.floor(w)) + 'px';
+}
+addEventListener('resize', fit);
+function buildSheet() {
+  const keys = Object.keys(SPR), sp = keys.map(k => SPR[k]);
+  const Lm = Math.max(...sp.map(s => -s.dx)), Rm = Math.max(...sp.map(s => s.dx + s.w));
+  const Um = Math.max(...sp.map(s => -s.dy)), Dm = Math.max(...sp.map(s => s.dy + s.h));
+  const cw = Lm + Rm + 4, chh = Um + Dm + 12, zoom = 2;
+  const cols = Math.max(2, Math.floor((document.documentElement.clientWidth - 32) / (cw * zoom)));
+  const sh = $('sheet'), c = sh.getContext('2d');
+  sh.width = cols * cw; sh.height = Math.ceil(keys.length / cols) * chh;
+  sh.style.width = sh.width * zoom + 'px';
+  c.fillStyle = '#10121a'; c.fillRect(0, 0, sh.width, sh.height);
+  keys.forEach((k, i) => {
+    const s = SPR[k], x = (i % cols) * cw, y = Math.floor(i / cols) * chh, ox = x + Lm + 2, oy = y + Um;
+    c.fillStyle = '#1e2230'; c.fillRect(x + 2, oy, cw - 4, 1);
+    c.drawImage(s.cv, ox + s.dx, oy + s.dy);
+    drawEyes(c, s, 'open', ox, oy);
+    text(c, k.toUpperCase(), x + 3, y + chh - 10, '#8d95aa');
+  });
+}
+
+function selfTest() {                              // open with #test to run
+  const ok = (c, m) => { if (!c) throw new Error('selfTest: ' + m); };
+  ok(motion([5, 2, 3, 6], [2, 3, 6]), 'qcf');
+  ok(!motion([5, 2, 6], [2, 3, 6]), 'qcf needs the diagonal');
+  ok(motion([6, 5, 2, 3], [6, 2, 3]), 'dp');
+  ok(relDir(4, -1) === 6 && relDir(3, -1) === 1 && relDir(8, -1) === 8, 'mirror');
+  ok(Math.sin(solve([0, 47], [10, 4], 25, 24, 1)[0]) > 0, 'knee bends forward');
+  ok(Math.abs(carTop(0) - 58.5) < .01 && carTop(-95) === -1 && carTop(-89) === 33, 'car roof profile');
+  console.log('selfTest OK');
+}
+
+resetCar(); resetHero(); camera(true); fit();
+if (location.hash === '#test') selfTest();
+let last = performance.now(), acc = 0;
+requestAnimationFrame(function loop(now) {
+  acc = Math.min(acc + (now - last) / 1000, .1); last = now;
+  while (acc >= 1 / 60) { acc -= 1 / 60; step(); }
+  render();
+  requestAnimationFrame(loop);
+});
+</script>
