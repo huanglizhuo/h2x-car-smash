@@ -138,6 +138,7 @@ body.touch .keys { display: none; }
 
 <main>
   <canvas id="screen" width="384" height="224" aria-label="H2-X 砸车奖励关"></canvas>
+  <p id="assetStatus" role="status">正在载入汽车素材…</p>
   <div id="pad" hidden>
     <div id="stick" aria-label="方向"><span id="knob"></span></div>
     <div class="btns">
@@ -155,6 +156,7 @@ body.touch .keys { display: none; }
     <span>→ + 脚 膝撞</span>
     <span>空中 ↓ + 拳 坠肘</span>
     <span>空中 ↓ + 脚 踩踏</span>
+    <span>车顶 拳下砸 · 脚踩踏</span>
     <span>↓↘→ + 拳 崩拳</span>
     <span>↓↙← + 脚 旋风腿</span>
     <span>→↓↘ + 脚 铁花空翻</span>
@@ -181,13 +183,6 @@ const PAL = ['', '#ffffff', '#e6ecf4', '#bcc7d6', '#8592aa', '#545d77', '#232739
   '#c9ced8', '#8e95a3', '#585e6d', '#14161c', '#eef1f6'];                 // 42-46 quadruped spectators
 const hexRGB = h => h && [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const RGB = PAL.map(hexRGB);
-const PAINTS = [                                // spec, light, mid, shadow, deep, line
-  ['#f2fffb', '#79d8c6', '#36a796', '#1d6f69', '#103f45', '#071a1f'],
-  ['#fffbe0', '#f6cf4a', '#d49a1e', '#8f5f12', '#4d320b', '#1e1305'],
-  ['#fff0ee', '#f0675d', '#c2343a', '#7c1d2a', '#43111a', '#1a070b'],
-  ['#eef4ff', '#6f9ef0', '#3a66c4', '#22407e', '#13244a', '#070d1e'],
-];
-const paintRGB = i => { const t = RGB.slice(); PAINTS[i].forEach((h, k) => { t[16 + k] = hexRGB(h); }); return t; };
 const MAT = {                                   // ramp: [specular, light, mid, shadow]
   white:  { ramp: [1, 2, 3, 4], line: 6, gloss: .975 },
   black:  { ramp: [7, 8, 9, 10], line: 11, gloss: .985 },
@@ -519,9 +514,9 @@ const POSES = {
   jtk: P({ y: 52, t: 14, fA: I(24, 72), nA: I(10, 66), fL: A(105, -10, { fo: 25 }), nL: A(78, -45, { fo: 40 }) }),
   jfl: P({ y: 48, t: 4, fA: I(28, 80, PALM), nA: I(8, 70), fL: A(30, 10, { fo: 20 }), nL: A(-6, -22, { fo: 30 }) }),
   lp1: P({ t: 8, fA: I(26, 74) }),
-  lp2: P({ x: 1, t: 11, fA: I(47, 76), nA: I(10, 66) }),
+  lp2: P({ x: 1, t: 18, fA: I(47, 56), nA: I(10, 66) }),
   mp1: P({ t: 2, nA: I(-3, 66), fA: I(26, 76, PALM) }),
-  mp2: P({ x: 3, t: 18, nA: I(41, 75), fA: I(12, 66), nL: I(-19, 4, { fo: 18 }) }),
+  mp2: P({ x: 3, t: 24, nA: I(41, 56), fA: I(12, 66), nL: I(-19, 4, { fo: 18 }) }),
   hp1: P({ t: -6, nA: I(-5, 101, { bend: 1 }), fA: I(24, 62, PALM) }),
   hp2: P({ t: 8, nA: I(26, 98, { bend: 1 }), fA: I(18, 60, PALM) }),
   hp3: P({ x: 5, y: 41, t: 30, nA: I(42, 52), fA: I(2, 56), fL: I(23, 4), nL: I(-18, 4) }),
@@ -542,6 +537,7 @@ const POSES = {
   ck2: P({ x: -4, y: 20, t: 30, fL: A(84, 88), nL: I(-16, 4), nA: I(4, 8, { hand: 'palm', hr: 90 }), fA: I(18, 36) }),
   jp:  P({ y: 48, t: 16, fA: I(37, 40), nA: I(6, 68), fL: A(60, -20, { fo: 30 }), nL: A(20, -40, { fo: 30 }) }),
   jk:  P({ y: 48, t: -8, fL: A(74, 76, { fo: 12 }), nL: A(-25, -120, { fo: 40 }), nA: I(-22, 84, { hand: 'palm', hr: 0 }), fA: I(28, 86, PALM) }),
+  roofp: P({ y: 22, t: 62, nA: I(25, -3), fA: I(8, 24), fL: I(20, 4), nL: I(-17, 4) }),
   jst: P({ y: 50, t: 6, nL: A(6, 2, { fo: -25 }), fL: A(70, -30, { fo: 30 }), nA: I(-16, 80), fA: I(22, 84) }),
   je:  { x: 0, y: 8, t: 60, nA: A(0, 180), fA: A(30, 120), fL: A(-120, -170, { fo: 60 }), nL: A(-100, -160, { fo: 60 }) },   // 坠肘 dive
   bq1: P({ x: -3, y: 44, t: -4, nA: I(-6, 54), fA: I(24, 72, PALM), fL: I(16, 4), nL: I(-18, 4) }),
@@ -569,8 +565,8 @@ const MOVES = {
   jsq:    { act: 1, f: [['jsq', 4]] },
   jump:   { act: 1, f: [['jup', 12], ['jtk', 14], ['jfl', 999]] },
   land:   { act: 1, f: [['jsq', 4]] },
-  LP: { act: 1, name: 'JAB', f: [['lp1', 2], ['lp2', 3, { hit: [30, 66, 54, 84], dmg: 3 }], ['lp1', 5]] },
-  MP: { act: 1, name: 'STRAIGHT', f: [['mp1', 3], ['mp2', 4, { hit: [24, 66, 50, 84], dmg: 6 }], ['mp1', 7], ['st0', 2]] },
+  LP: { act: 1, name: 'JAB', f: [['lp1', 2], ['lp2', 3, { hit: [30, 44, 54, 66], dmg: 3 }], ['lp1', 5]] },
+  MP: { act: 1, name: 'STRAIGHT', f: [['mp1', 3], ['mp2', 4, { hit: [24, 44, 50, 66], dmg: 6 }], ['mp1', 7], ['st0', 2]] },
   HP: { act: 1, name: 'HAMMER FIST', face: 'glare', f: [['hp1', 5], ['hp2', 3], ['hp3', 4, { hit: [22, 34, 52, 70], dmg: 11 }], ['hp4', 14]] },
   LK: { act: 1, name: 'LOW KICK', f: [['lk1', 3], ['lk2', 3, { hit: [22, 6, 52, 26], dmg: 3 }], ['lk1', 6]] },
   MK: { act: 1, name: 'SIDE KICK', f: [['mk1', 4], ['mk2', 5, { hit: [26, 36, 58, 58], dmg: 7 }], ['mk1', 8]] },
@@ -583,6 +579,8 @@ const MOVES = {
   jK: { act: 1, name: 'FLYING KICK', f: [['jk', 999, { hit: [26, 16, 58, 40], dmg: 7 }]] },
   jS: { act: 1, name: 'STOMP', f: [['jst', 999, { hit: [-12, -10, 20, 12], dmg: 9, vy: -5 }]] },
   jE: { act: 1, name: 'FALLING ELBOW', face: 'glare', f: [['je', 999, { hit: [0, -6, 30, 18], dmg: 10, vy: -5 }]] },
+  roofP: { act: 1, name: 'ROOF SMASH', f: [['cr0', 5], ['roofp', 5, { hit: [6, -18, 38, 12], dmg: 10 }], ['cr0', 11]] },
+  roofK: { act: 1, name: 'ROOF STOMP', f: [['kn1', 6], ['jst', 5, { hit: [-12, -12, 20, 12], dmg: 9 }], ['st0', 12]] },
   WIN:  { act: 1, face: 'happy', f: [['v1', 18], ['v2', 9999]] },
   LOSE: { act: 1, face: 'sad', f: [['ko', 9999]] },
 };
@@ -602,249 +600,150 @@ const SPR = {};
 for (const k in POSES) SPR[k] = bakePose(POSES[k]);
 for (const k in MOVES) for (const [pose] of MOVES[k].f) if (!SPR[pose]) throw new Error(`move ${k} uses unknown pose ${pose}`);
 
-// ════════ the car: an original 90s three-box sedan, front to the right. Car-local coords: x ±89, y up from the ground ════════
-const WHEELS = { rear: -56, front: 58 }, WR = 12;
-const ZONES = { rear: [-92, 10, -44, 40], cabin: [-46, 10, 36, 64], front: [34, 10, 92, 40] };
-const ZHP = { rear: 100, cabin: 150, front: 100 };
-const car = { x: 256, paint: -1 };
-let WHEEL, PARTS = {};
-
-function carShape() {                            // damage → deformation of every car point
-  const v = car.lv, wreck = v.rear + v.cabin + v.front === 9;
-  const fd = v.front > 2 ? 5 : 0, rd = v.rear > 2 ? 5 : 0, sq = wreck ? .86 : 1;
-  return { D: (x, y) => [x, y * sq - (x > 0 ? fd * x : -rd * x) / 89], roof: v.cabin > 2 ? 49 : 58, buckle: v.front > 1 };
+// ════════ SSFII bonus car: original sheet, bottom-aligned damage frames ════════
+const CAR_SCALE = 1.2, CAR_HALF = 114, WR = 17;
+const ZONES = { rear: [-114, 4, -65, 82], cabin: [-65, 4, 44, 104], front: [44, 4, 114, 64] };
+const ZHP = { rear: 100, cabin: 120, front: 100 };
+const car = { x: 256 };
+const atlas = new Image(), CAR_FRAMES = [], PARTS = {};
+let WHEEL, CAR_UNDER;
+function sheetSprite(x, y, w, h, scale = CAR_SCALE) {
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+  const c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+  c.drawImage(atlas, x, y, w, h, 0, 0, cv.width, cv.height);
+  return { cv, w: cv.width, h: cv.height, dx: -Math.floor(cv.width / 2), dy: -Math.floor(cv.height / 2), r: Math.min(cv.width, cv.height) / 2 };
 }
-const roofLine = r => [[-89, 33], [-84, 36.5], [-58, 37.5], [-37, r - .5], [-30, r + .5], [8, r + .5], [14, r - .5], [35, 36], [82, 33.5], [89, 31]];
-function carTop(xr) {                            // top surface height at car-local x, -1 off the car
-  if (xr < -89 || xr > 89) return -1;
-  const { D, roof } = carShape(), p = roofLine(roof);
+function prepareCarSprites() {
+  // Each frame keeps the same bumper baseline; damage must never make the car slide.
+  for (const r of [[12,105,187,85], [12,204,187,75], [205,210,185,69], [396,210,185,69],
+    [12,293,185,77], [202,301,185,69], [392,301,185,69], [12,382,182,57], [205,26,187,69]]) {
+    const c = document.createElement('canvas'); c.width = 190; c.height = 92;
+    c.getContext('2d').drawImage(atlas, ...r, 0, 92 - r[3], r[2], r[3]);
+    if (r[0] === 205 && r[1] === 26) c.getContext('2d').clearRect(146, 0, 44, 52); // Sheet credits overlap the empty space above the wreck.
+    CAR_FRAMES.push(c);
+  }
+  const cracked = document.createElement('canvas'); cracked.width = 190; cracked.height = 92;
+  const glass = cracked.getContext('2d');
+  for (const [sx, w, dx] of [[207,80,0], [382,15,80], [405,91,95]]) glass.drawImage(atlas, sx, 105, w, 85, dx, 7, w, 85);
+  CAR_FRAMES.push(cracked);
+  CAR_UNDER = document.createElement('canvas'); CAR_UNDER.width = 190; CAR_UNDER.height = 104;
+  const under = CAR_UNDER.getContext('2d');
+  under.drawImage(atlas, 394, 381, 190, 104, 0, 0, 190, 104);
+  under.globalCompositeOperation = 'destination-out';
+  under.drawImage(CAR_FRAMES[0], 0, 0); // Keep the reference car's wheels and shadow beneath the separate body frames.
+  WHEEL = sheetSprite(352,452,28,40);
+  PARTS.bumperF = sheetSprite(201,394,144,45, .65);
+  PARTS.bumperR = sheetSprite(21,462,86,20);
+  PARTS.hood = sheetSprite(164,454,84,37);
+  PARTS.trunk = sheetSprite(18,560,52,27);
+  PARTS.doorF = sheetSprite(75,560,50,27);
+  PARTS.doorR = sheetSprite(129,560,47,27);
+  PARTS.mirror = sheetSprite(258,465,36,20);
+  PARTS.glass = sheetSprite(265,508,16,25);
+}
+function carShape() {
+  const wreck = Object.values(car.lv).every(v => v === 3);
+  return { roof: wreck ? 70 : [102, 102, 88, 65][car.lv.cabin], wreck };
+}
+function carTop(xr) {
+  if (xr < -CAR_HALF || xr > CAR_HALF) return -1;
+  const { roof, wreck } = carShape();
+  const p = [[-114, wreck ? 30 : 48], [-98, 62], [-65, roof], [10, roof],
+    [44, Math.min(roof, 64)], [98, wreck ? 32 : 53], [114, wreck ? 26 : 42]];
   let i = 1;
   while (i < p.length - 1 && xr > p[i][0]) i++;
   const [x0, y0] = p[i - 1], [x1, y1] = p[i];
-  return D(xr, y0 + (y1 - y0) * (xr - x0) / (x1 - x0))[1];
+  return y0 + (y1 - y0) * (xr - x0) / (x1 - x0);
 }
-function carParts() {
-  const { D, roof, buckle } = carShape(), v = car.lv, gone = car.gone, out = [];
-  const add = (s, mat, R, o) => out.push(Object.assign({ ...s, mat, R, layer: 0 }, o));
-  const dp = (pts, r = 0) => poly(pts.map(([x, y]) => D(x, y)), r);
-  const hull = dp([[-89.5, 14], [-88, 33], [-84, 36.5], [-58, 37.5], [35, 36], buckle ? [60, 38] : [58, 35],
-    [82, buckle ? 35.5 : 33.5], [88.5, 31], [89.5, 26], [89, 15], [86, 11], [-86, 11]], 1.5);
-  const arch = Object.values(WHEELS).map(wx => { const [ax, ay] = bp(D(wx, WR)); return (x, y) => 15 - Math.hypot(x - ax, y - ay); });
-  const body = { f: (x, y) => Math.max(hull.f(x, y), arch[0](x, y), arch[1](x, y)), bb: hull.bb };
-  add(body, MAT.paint, 9);
-  const cab = dp([[-58, 37], [-37, roof - .5], [-30, roof + .5], [8, roof + .5], [14, roof - .5], [35.5, 35.5]], 1.5);
-  add(cab, MAT.paint, 5);
-  const shell = { f: (x, y) => Math.min(body.f(x, y), cab.f(x, y)),
-    bb: [Math.min(hull.bb[0], cab.bb[0]), Math.min(hull.bb[1], cab.bb[1]), Math.max(hull.bb[2], cab.bb[2]), Math.max(hull.bb[3], cab.bb[3])] };
-  const deco = (s, mat, R, o) => add(s, mat, R, Object.assign({ clip: shell.f }, o));
-  const line = (a, b) => capsule(D(...a), D(...b), .55, .55);
-  deco(dp([[-79, 23], [79, 23], [79, 20.6], [-79, 20.6]]), MAT.rubber, 9, { form: shell.f });          // rubbing strip
-  for (const [a, b] of [[[35.6, 35.4], [35.6, 12]], [[-9, 37.4], [-9, 12]], [[-48.5, 36.8], [-48.5, 12.5]]]) deco(line(a, b), MAT.seam, 1, { inset: 0 });
-  for (const hx of [20.5, -21.5]) deco(dp([[hx, 30.8], [hx + 6.5, 30.8], [hx + 6.5, 29.2], [hx, 29.2]], .4), MAT.chrome, 1.5);
-  deco(circle(D(-67, 30), 2.2), MAT.dent, 2.2, { concave: true });                                    // fuel flap
-  for (const d of car.dents) deco(circle(D(d.x, d.y), d.r), MAT.dent, d.r, { concave: true });
-  const wt = roof - 2.6;
-  const winF = dp([[31.6, 37.6], [13.6, wt], [-7, wt], [-7, 37.6]], .5), winR = dp([[-11, 37.6], [-11, wt], [-34.4, wt], [-53, 37.6]], .5);
-  if (v.cabin < 2) {
-    for (const [w, ss] of [[winF, [[17, 22], [25, 27]]], [winR, [[-25, -20], [-17, -15]]]]) {
-      deco(w, MAT.glass, 7);
-      for (const [x0, x1] of ss) add(dp([[x0, 37.6], [x1, 37.6], [x1 - 8, wt], [x0 - 8, wt]]), MAT.streak, 3, { clip: w.f, form: w.f });
+function bakeCar() {
+  const cv = document.createElement('canvas'); cv.width = 228; cv.height = 110;
+  const c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+  if (carShape().wreck) c.drawImage(CAR_FRAMES[8], 0, 0, 228, 110);
+  else {
+    c.drawImage(CAR_FRAMES[8], 0, 0, 228, 110); // Exposed engine and chassis remain beneath torn-off panels.
+    const variants = { rear: [0,9,4,7], cabin: [0,9,1,7], front: [0,3,5,6] };
+    for (const z in ZONES) {
+      const [a,,b] = ZONES[z], x = a + CAR_HALF, w = b - a;
+      c.drawImage(CAR_FRAMES[variants[z][car.lv[z]]], x / CAR_SCALE, 0, w / CAR_SCALE, 92, x, 0, w, 110);
     }
-    if (v.cabin === 1) for (const k of car.cracks) for (const [dx, dy] of k.rays) add(line([k.x, k.y], [k.x + dx, k.y + dy]), MAT.crack, 1, { clip: (k.w ? winF : winR).f, inset: 0 });
-  } else {
-    const holes = [winF, winR];
-    if (v.cabin > 2) holes.push(dp([[35, 35.2], [35, 13.2], [-7.8, 13.2], [-7.8, 35.2]], 1), dp([[-10.2, 35.2], [-10.2, 13.2], [-47.2, 13.8], [-47.2, 35.8]], 1));
-    for (const h of holes) deco(h, MAT.inside, 4);
-    const inner = (x, y) => Math.min(...holes.map(h => h.f(x, y)));
-    for (const sx of [2, -37]) add(dp([[sx, 22], [sx + 7, 23], [sx + 8, roof - 9], [sx + 2, roof - 8]], 1.2), MAT.rubber, 3, { clip: inner });
-    for (const [x, y, s] of [[-6.5, 38, 1], [30, 38.5, -1], [-11.5, 38, 1], [-51, 38.5, 1]]) deco(dp([[x, y], [x + 3 * s, y], [x + s, y + 5]]), MAT.glass, 2);
   }
-  deco(dp([[80.5, 32.5], [88.6, 30.6], [89.2, 26.4], [81, 26.8]], .5), v.front ? MAT.inside : MAT.head, 3);
-  deco(dp([[-88.6, 34.6], [-82.5, 35.6], [-82.5, 28], [-89.2, 28.4]], .5), v.rear ? MAT.inside : MAT.tail, 3);
-  if (buckle) for (const [a, b] of [[[48, 36.4], [55, 32.5]], [[55, 32.5], [62, 37.2]], [[66, 36.5], [72, 33]]]) deco(line(a, b), MAT.seam, 1, { inset: 0 });
-  if (v.front > 2) { deco(dp([[37, 35.8], [81.5, 33.4], [81.5, 27.6], [37.5, 28]], .5), MAT.inside, 3); deco(dp([[45, 33.6], [71, 33], [71, 28.8], [45, 29]], .8), MAT.chrome, 2.5); }
-  if (v.rear > 2) deco(dp([[-58.5, 37.2], [-84.5, 36.2], [-84.5, 30.6], [-58.5, 30.6]], .5), MAT.inside, 3);
-  if (!gone.has('mirror')) add(dp([[29.5, 38], [35.5, 38.6], [37.4, 43.8], [30.2, 44.2]], .9), MAT.paint, 2, { layer: 1 });
-  if (!gone.has('bumperF')) add(dp([[83.5, 11.5], [91.2, 12.2], [91.6, 22.6], [83.5, 23.2]], 1.2), MAT.rubber, 3, { layer: 1 });
-  if (!gone.has('bumperR')) add(dp([[-91.6, 12.2], [-83.5, 11.5], [-83.5, 23.2], [-91.2, 22.6]], 1.2), MAT.rubber, 3, { layer: 1 });
-  return out;
-}
-function bakeCar() { useBuf(200, 76, 100, 72); car.spr = renderParts(carParts(), car.rgb); car.dirty = false; }
-
-function wheelSprite() {
-  useBuf(32, 32, 16, 16);
-  const out = [], add = (s, m, R) => out.push({ ...s, mat: m, R, layer: 0 });
-  add(circle([0, 0], WR), MAT.rubber, 6); add(circle([0, 0], 7), MAT.chrome, 4.5); add(circle([0, 0], 2.2), MAT.rubber, 2);
-  for (let i = 0; i < 5; i++) add(circle([Math.cos(i * 1.2566) * 4.5, Math.sin(i * 1.2566) * 4.5], 1.2), MAT.rubber, 1.2);
-  const s = renderParts(out);
-  s.r = WR;
-  return s;
-}
-function partSprite(k) {                         // loose panels for the debris, centred on their own origin
-  useBuf(56, 32, 28, 16);
-  const out = [], add = (s, m, R, o) => out.push(Object.assign({ ...s, mat: m, R, layer: 0 }, o));
-  const slabShape = (w, h, r = 1) => poly([[-w, h], [w, h], [w, -h], [-w, -h]], r);
-  if (k.startsWith('bumper')) add(slabShape(3.2, 5.2, 1.2), MAT.rubber, 3);
-  if (k === 'mirror') add(poly([[-3, -2.6], [3, -2.2], [3.8, 2.6], [-2.6, 3]], .9), MAT.paint, 2);
-  if (k === 'hood') add(poly([[-22, 1.6], [22, .4], [22.6, -1.6], [-22, -1]], .8), MAT.paint, 2);
-  if (k === 'trunk') add(slabShape(12.5, 1.6, .8), MAT.paint, 2);
-  if (k.startsWith('door')) {
-    const w = k === 'doorF' ? 21 : 18, p = slabShape(w, 10.6, 1);
-    add(p, MAT.paint, 7);
-    add(poly([[-w, -2.4], [w, -2.4], [w, -4.6], [-w, -4.6]]), MAT.rubber, 7, { clip: p.f, form: p.f });
-    add(poly([[w - 10, 5], [w - 4, 5], [w - 4, 3.6], [w - 10, 3.6]], .4), MAT.chrome, 1.5, { clip: p.f });
-  }
-  const s = renderParts(out, car.rgb);
-  s.r = s.h / 2;
-  return s;
+  car.spr = { cv, dx: -CAR_HALF, dy: -110 }; car.dirty = false;
 }
 
-// ════════ spectators: little quadruped robots perched on the scrap stacks ════════
-function dogSprite(pose) {
-  useBuf(40, 32, 20, 29);
-  const out = [], add = (s, m, R, layer, dk = 0) => out.push({ ...s, mat: m, R, layer, dk });
-  const sit = pose === 'sit', hop = pose === 'hop', by = hop ? 13 : sit ? 9 : 10;
-  const legs = (dx, layer, dk) => {
-    const hind = sit ? [[-6, 7], [-2, 2.5], [-7, 1.2]] : [[-6, by - 2], [-9, by - 6.5], [-6, 1.2]];
-    const front = [[5, by - 2], [2.5, hop ? 5 : by - 6.5], [5, 1.2]];
-    for (const [a, b, c] of [hind, front]) {
-      add(capsule([a[0] + dx, a[1]], [b[0] + dx, b[1]], 2, 1.6), MAT.dog, 1.8, layer, dk);
-      add(circle([b[0] + dx, b[1]], 1.5), MAT.black, 1.4, layer, dk);
-      add(capsule([b[0] + dx, b[1]], [c[0] + dx, c[1]], 1.4, 1.1), MAT.dog, 1.3, layer, dk);
-    }
-  };
-  legs(2, 0, -.16);
-  const tilt = sit ? 3 : 0, hy = by + tilt + (pose === 'look' ? 2.5 : 1);
-  add(capsule([-8, by - tilt * .5], [6, by + tilt], 4, 3.6), MAT.dog, 3.6, 1);
-  add(poly([[6, hy + 3.2], [13.5, hy + 2.5], [14.5, hy - .8], [7, hy - 2]], 1), MAT.dog, 2.2, 1);
-  add(circle([12.6, hy + 1.2], .9), MAT.glow, 1, 1);
-  legs(0, 2, 0);
-  return renderParts(out);
-}
-const DOG = { sit: dogSprite('sit'), look: dogSprite('look'), hop: dogSprite('hop') };
-WHEEL = wheelSprite();
-
-// ════════ stage: a night scrapyard (original), painted once into parallax layers ════════
-const SW = 384, SH = 224, GROUND = 204, STAGE_W = 512, L = {}, DOGS = [];
+// ════════ bonus stage: blue sea, moored yacht, flag and a sunlit pier ════════
+const SW = 384, SH = 224, GROUND = 204, STAGE_W = 512, L = {};
 let sseed = 20261021;
 const srand = () => (sseed = sseed * 16807 % 2147483647) / 2147483647;
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const bay = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 const layer = w => { const c = document.createElement('canvas'); c.width = w; c.height = SH; return c.getContext('2d'); };
 const fill = (c, col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
-function grad(c, x0, w, stops) {                 // vertical gradient, ordered-dithered between stops
-  for (let i = 1; i < stops.length; i++) {
-    const [ya, ca] = stops[i - 1], [yb, cb] = stops[i];
-    for (let y = ya; y < yb; y++) {
-      const t = (y - ya) / (yb - ya) * 16;
-      fill(c, ca, x0, y, w, 1);
-      c.fillStyle = cb;
-      for (let x = x0; x < x0 + w; x++) if (bay(x, y) < t) c.fillRect(x, y, 1, 1);
+function stagePoly(c, col, pts) {
+  c.fillStyle = col; c.beginPath(); c.moveTo(...pts[0]);
+  for (const p of pts.slice(1)) c.lineTo(...p);
+  c.closePath(); c.fill();
+}
+function paintStage() {
+  const sky = L.sky = layer(SW), sea = L.far = layer(STAGE_W), ship = L.mid = layer(STAGE_W), dock = L.ground = layer(STAGE_W);
+  fill(sky, '#2978ce', 0, 0, SW, SH);
+  for (let y = 45; y < 112; y += 7) fill(sky, ['#438fda','#5ba4e3','#78b6e9','#96cbef'][Math.min(3, (y - 45) / 18 | 0)], 0, y, SW, 7);
+  for (const [cx,cy,w] of [[18,65,72],[109,87,110],[211,54,83],[300,83,108],[382,61,87]]) {
+    for (let y = -16; y < 11; y++) for (let x = -w / 2 | 0; x < w / 2; x++) {
+      const edge = Math.sin(x * .18) * 2 + Math.sin(x * .43) * 1.5;
+      const puffs = Math.min((x + w * .22) ** 2 / (w * .27) ** 2 + (y + 1) ** 2 / 70,
+        (x - w * .04) ** 2 / (w * .28) ** 2 + (y + 5) ** 2 / 124,
+        (x - w * .3) ** 2 / (w * .24) ** 2 + (y - 1) ** 2 / 48);
+      if (puffs > 1 + edge * .03) continue;
+      fill(sky, y > 5 + edge ? '#94bfdf' : y > 1 + edge ? '#bdd9ee' : y > -4 + edge ? '#e2eff7' : '#ffffff', cx + x, cy + y, 1, 1);
     }
   }
-}
-function disc(c, cx, cy, r, col, ry = r) {
-  c.fillStyle = col;
-  for (let y = -ry; y <= ry; y++) { const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2))); c.fillRect(cx - hw, cy + y, hw * 2 + 1, 1); }
-}
-function glow(c, cx, cy, r, col, ry = r, k = 1) { // dithered halo, dense in the middle
-  c.fillStyle = col;
-  for (let y = -ry; y <= ry; y++) for (let x = -r; x <= r; x++) {
-    const d = Math.hypot(x / r, y / ry);
-    if (d <= 1 && bay(cx + x, cy + y) < (1 - d) * 16 * k) c.fillRect(cx + x, cy + y, 1, 1);
+  fill(sea, '#183e92', 0, 112, STAGE_W, 56); fill(sea, '#e1f1fa', 0, 111, STAGE_W, 1);
+  for (let y = 115; y < 168; y += 3) for (let x = -12; x < STAGE_W; x += 12 + (srand() * 16 | 0)) {
+    fill(sea, y % 2 ? '#487cc2' : '#76add7', x, y, 4 + (srand() * 12 | 0), 1);
+    fill(sea, '#102e78', x + 3, y + 1, 7, 1);
+  }
+  ship.translate(-64, 0);
+  // The yacht is behind the car on the right, as in the arcade bonus stage.
+  stagePoly(ship, '#222753', [[307,117],[505,110],[484,156],[342,153]]);
+  stagePoly(ship, '#f8efd6', [[299,108],[505,103],[494,137],[334,140]]);
+  stagePoly(ship, '#b5b4bc', [[334,140],[494,137],[487,149],[343,151]]);
+  fill(ship, '#b74c3d', 335, 136, 157, 3);
+  for (let y = 112; y < 134; y += 4) fill(ship, y < 124 ? '#ded8c4' : '#c5c1b8', 326 + (y - 112) / 2, y, 170 - (y - 112) / 2, 1);
+  stagePoly(ship, '#faf8e5', [[343,104],[359,73],[450,73],[465,107]]);
+  stagePoly(ship, '#274677', [[354,96],[363,79],[390,79],[390,96]]);
+  stagePoly(ship, '#274677', [[395,79],[440,79],[450,96],[395,96]]);
+  fill(ship, '#8db7ce', 360, 81, 27, 3); fill(ship, '#8db7ce', 399, 81, 39, 3);
+  fill(ship, '#ebe9dc', 353, 70, 102, 4); fill(ship, '#494765', 358, 68, 91, 2);
+  fill(ship, '#f7f5d9', 392, 50, 4, 21); fill(ship, '#66657e', 393, 48, 27, 2);
+  for (let x = 318; x < 503; x += 17) fill(ship, '#eee9d9', x, 100, 2, 15);
+  fill(ship, '#fffbe5', 312, 99, 194, 2);
+  for (let x = 355; x < 483; x += 27) { fill(ship, '#333653', x, 122, 9, 7); fill(ship, '#858593', x + 1, 123, 7, 1); }
+  fill(ship, '#45446a', 466, 28, 2, 72);
+  fill(dock, '#403d48', 0, 162, STAGE_W, 7); fill(dock, '#f5d5a1', 0, 160, STAGE_W, 2);
+  fill(dock, '#bca88a', 0, 169, STAGE_W, 55);
+  for (const y of [169,177,189,205,223]) { fill(dock, '#625a57', 0, y, STAGE_W, 1); fill(dock, '#e8d0a8', 0, y + 1, STAGE_W, 1); }
+  for (let x = -320; x < 850; x += 32) stagePoly(dock, '#7e7265', [[256+(x-256)*.6,170],[257+(x-256)*.6,170],[x+1,224],[x,224]]);
+  for (let i = 0; i < 420; i++) fill(dock, srand() > .5 ? '#d6bd98' : '#a18d76', srand() * STAGE_W | 0, 172 + (srand() * 52 | 0), 2, 1);
+  for (const x of [25, 466]) {
+    fill(dock, '#302e43', x, 147, 8, 18); fill(dock, '#97939b', x, 147, 7, 3);
+    fill(dock, '#4d4a5c', x - 4, 151, 16, 4); fill(dock, '#c6bbc0', x - 3, 150, 14, 1);
   }
 }
-function paintSky() {
-  const c = L.sky = layer(SW);
-  grad(c, 0, SW, [[0, '#04050a'], [56, '#070a14'], [104, '#0b1021'], [146, '#121a31'], [176, '#1b2542'], [224, '#1b2542']]);
-  for (let i = 0; i < 70; i++) {
-    const x = srand() * SW | 0, y = srand() * 118 | 0, b = srand();
-    fill(c, b > .9 ? '#ffffff' : b > .55 ? '#8a96bd' : '#3b4566', x, y, 1, 1);
-    if (b > .97) { fill(c, '#8a96bd', x - 1, y, 3, 1); fill(c, '#8a96bd', x, y - 1, 1, 3); fill(c, '#ffffff', x, y, 1, 1); }
+paintStage();
+function drawHarbor() {
+  const ox = -Math.round(camX * .6);
+  ctx.drawImage(L.sky.canvas, 0, 0);
+  ctx.drawImage(L.far.canvas, -Math.round(camX * .3) - (calm ? 0 : (frame / 14 | 0) % 3), 0);
+  ctx.drawImage(L.mid.canvas, ox, 0);
+  for (let x = 0; x < 29; x++) {
+    const y = 29 + (calm ? 0 : Math.round(Math.sin(x * .22 - frame * .12) * 2));
+    for (let r = 0; r < 13; r++) fill(ctx, r % 2 ? '#fff3de' : '#c94b48', 404 + ox + x, y + r, 1, 1);
+    if (x < 12) {
+      fill(ctx, '#2b3b7c', 404 + ox + x, y, 1, 7);
+      if (x % 3 === 1) for (let r = 1; r < 7; r += 2) fill(ctx, '#fff3de', 404 + ox + x, y + r, 1, 1);
+    }
   }
-  glow(c, 318, 34, 22, '#18203a', 22, .9);
-  disc(c, 318, 34, 9, '#b9b39c'); disc(c, 317, 33, 8, '#e9e4cf');
-  fill(c, '#cbc5ad', 313, 31, 2, 2); fill(c, '#cbc5ad', 320, 36, 3, 2); fill(c, '#cbc5ad', 316, 37, 1, 1);
+  ctx.drawImage(L.ground.canvas, -Math.round(camX), 0);
 }
-function paintFar() {
-  const W = Math.ceil(SW + (STAGE_W - SW) * .3), c = L.far = layer(W);
-  for (let i = 0; i < 46; i++) fill(c, srand() > .7 ? '#c9a25a' : '#2a3550', srand() * W | 0, 118 + srand() * 10 | 0, 1, 1);   // city glow
-  for (let x = 0; x < W; x++) {                  // distant scrap mounds
-    const h = Math.round(134 + 7 * Math.sin(x * .021 + 1) + 4 * Math.sin(x * .067) + 2 * Math.sin(x * .19 + 2));
-    fill(c, '#1a2337', x, h, 1, 1); fill(c, '#101727', x, h + 1, 1, 176 - h);
-  }
-  for (let i = 0; i < 14; i++) {                 // wreck silhouettes on the mound line
-    const x = srand() * W | 0, w = 14 + srand() * 14 | 0, y = 126 + srand() * 10 | 0;
-    fill(c, '#0e1422', x, y, w, 7); fill(c, '#18213a', x, y, w, 1); fill(c, '#0a0f1a', x + 3, y + 2, w - 6, 2);
-  }
-  const cx = 330;                                // gantry crane with a scrap magnet
-  fill(c, '#141c2e', cx, 62, 5, 90);
-  for (let y = 64; y < 150; y += 6) fill(c, '#0c1120', cx + 1, y, 3, 3);
-  for (let i = 0; i < 96; i++) { const y = Math.round(64 - i * .12); fill(c, '#141c2e', cx - i, y, 1, 2); if (i % 6 === 0) fill(c, '#141c2e', cx - i, y + 2, 1, 2); }
-  fill(c, '#141c2e', cx + 5, 60, 14, 6); fill(c, '#0f1524', cx - 90, 54, 1, 38); fill(c, '#141c2e', cx - 95, 92, 11, 4);
-  fill(c, '#ff5a4a', cx + 2, 59, 2, 2);
-  for (const x of [70, 210]) { glow(c, x, 95, 8, '#2b3247', 6, .9); fill(c, '#121a2b', x, 96, 1, 50); fill(c, '#ffeeb0', x - 2, 94, 5, 2); }
-}
-const JUNK = [['#e0b13c', '#a87a1f', '#6b4c12'], ['#d7dce4', '#a3aab8', '#5f6676'], ['#4c6fd0', '#30489a', '#1d2c5e'],
-  ['#c8443e', '#8e2a2c', '#541819'], ['#4f9a62', '#336b43', '#1d3f27'], ['#3a3f4a', '#272b33', '#16181d'], ['#e07a3c', '#a5532a', '#5f2f19']];
-function slab(c, x, y, w, h, [lt, md, dk]) {    // one flattened wreck: floodlit top, crushed windows, tyres peeking out
-  fill(c, '#07080c', x - 1, y - 1, w + 2, h + 2);
-  fill(c, md, x, y, w, h); fill(c, lt, x, y, w, 2); fill(c, dk, x, y + h - 3, w, 3);
-  const wx = x + 6 + (srand() * 8 | 0), ww = w - 14 - (srand() * 10 | 0);
-  fill(c, '#10141c', wx, y + 3, ww, Math.max(2, h * .3 | 0)); fill(c, '#2c3a52', wx + 1, y + 3, Math.max(1, ww / 3 | 0), 1);
-  if (srand() < .6) for (const k of [.22, .78]) { const tx = x + w * k | 0; disc(c, tx, y + h, 4, '#0c0d10'); disc(c, tx, y + h, 2, '#3b3e46'); }
-  for (let i = 0; i < w * h / 40; i++) fill(c, dk, x + (srand() * w | 0), y + 2 + (srand() * (h - 4) | 0), 1, 1);
-}
-function stack(c, x, base, n) {
-  let y = base;
-  for (let i = 0; i < n; i++) {
-    const w = 60 + (srand() * 26 | 0), h = 12 + (srand() * 6 | 0);
-    y -= h + 1;
-    slab(c, x + (srand() * 12 - 6 | 0), y, w, h, JUNK[srand() * JUNK.length | 0]);
-  }
-  return y;
-}
-function paintMid() {
-  const W = Math.ceil(SW + (STAGE_W - SW) * .6), c = L.mid = layer(W);
-  const tops = [[-10, 5], [58, 4], [300, 3], [352, 5], [410, 4]].map(([x, n]) => [x, stack(c, x, 171, n)]);
-  fill(c, '#07080c', 111, 131, 94, 41);           // the blue shipping container from the promo yard
-  fill(c, '#2b4f8c', 112, 132, 92, 39);
-  for (let i = 114; i < 203; i += 4) fill(c, '#1f3b6b', i, 134, 1, 35);
-  fill(c, '#4a72b8', 112, 132, 92, 2); fill(c, '#16294a', 112, 168, 92, 3);
-  fill(c, '#17305a', 186, 135, 1, 33); fill(c, '#17305a', 194, 135, 1, 33);
-  text(c, 'YARD 07', 124, 146, '#8aa0c8', 1, '#16294a');
-  for (const x of [222, 286]) {                  // floodlight masts framing the car
-    glow(c, x + 1, 47, 22, '#262c3f', 16, 1);
-    fill(c, '#161a24', x, 46, 2, 125); fill(c, '#0c0e14', x - 6, 43, 14, 5); fill(c, '#fff8df', x - 5, 44, 12, 2);
-  }
-  const img = c.getImageData(0, 150, W, 22), d = img.data;   // stack bases fall into shadow
-  for (let y = 0; y < 22; y++) for (let x = 0; x < W; x++) {
-    const i = (y * W + x) * 4;
-    if (d[i + 3] && bay(x, y) < y * .8) for (let k = 0; k < 3; k++) d[i + k] *= .55;
-  }
-  c.putImageData(img, 0, 150);
-  for (const [k, dx, face] of [[1, 34, 1], [3, 20, -1], [4, 40, -1]]) DOGS.push({ x: tops[k][0] + dx, y: tops[k][1] - 1, face, ph: DOGS.length * 23 });
-}
-function paintGround() {
-  const c = L.ground = layer(STAGE_W);
-  grad(c, 0, STAGE_W, [[166, '#0f0f13'], [174, '#1a191f'], [192, '#232128'], [224, '#2c2a30']]);
-  glow(c, 256, 197, 170, '#35323a', 20, 1.1);     // floodlit patch around the car
-  for (let x = 0; x < STAGE_W; x += 3) { const y = Math.round(213 + Math.sin(x * .012) * 4); fill(c, '#1e1c22', x, y, 2, 1); fill(c, '#1e1c22', x + 1, y + 6, 2, 1); }
-  for (let i = 0; i < 10; i++) disc(c, srand() * STAGE_W | 0, 180 + srand() * 40 | 0, 4 + srand() * 9 | 0, '#17161b', 1 + srand() * 2 | 0);
-  for (const [x, y, w] of [[96, 215, 26], [410, 209, 34], [306, 220, 18]]) { disc(c, x, y, w, '#18213a', 2); fill(c, '#4f6290', x - (w >> 1), y, w / 3 | 0, 1); }
-  for (let i = 0; i < 260; i++) fill(c, srand() > .5 ? '#3d3a41' : '#151419', srand() * STAGE_W | 0, 168 + srand() * 56 | 0, 1, 1);
-  for (let i = 0; i < 3; i++) {                  // tyre stack
-    const y = 196 - i * 7;
-    fill(c, '#060608', 21, y - 1, 28, 9); fill(c, '#141417', 22, y, 26, 7); fill(c, '#2a2a30', 22, y, 26, 1); fill(c, '#0b0b0d', 26, y + 3, 18, 1);
-  }
-  disc(c, 62, 195, 9, '#060608'); disc(c, 62, 195, 8, '#141417'); disc(c, 62, 195, 4, '#25232a'); fill(c, '#2a2a30', 56, 188, 5, 1);
-  for (const x of [462, 478]) {                  // rusty drums
-    fill(c, '#060608', x - 1, 182, 16, 23); fill(c, '#7a2c22', x, 183, 14, 21); fill(c, '#a5442f', x + 2, 183, 3, 21);
-    for (const y of [183, 192, 202]) fill(c, '#4a1a16', x, y, 14, 1);
-    fill(c, '#5c211b', x, 183, 14, 2);
-  }
-}
-paintSky(); paintFar(); paintMid(); paintGround();
 
 // ════════ sound: everything synthesised with WebAudio, started on the first key press or tap ════════
 let AC = null, master = null, NOISE = null, muted = false;
@@ -890,7 +789,7 @@ function sfx(kind, k = 1) {
 }
 
 // ════════ effects. World coords: x along the stage, y up from the ground ════════
-const fx = [], flowers = [], debris = [];
+const fx = [], debris = [];
 const P_SPARK = ['#ffffff', '#fff3b0', '#ffd34a', '#ff9a3a', '#c4501c'];
 const P_GLASS = ['#ffffff', '#cfeaf7', '#9fd3ea', '#5486ad'];
 function burst(x, y, n, sp, up, g, life, pal) {
@@ -898,19 +797,12 @@ function burst(x, y, n, sp, up, g, life, pal) {
 }
 const sparks = (x, y, n = 6) => burst(x, y, n, 4, 3, .18, 30, P_SPARK);
 const glassBurst = (x, y, n = 14) => burst(x, y, n, 4, 3.5, .22, 50, P_GLASS);
-const chips = (x, y, n) => burst(x, y, n, 3.5, 3, .25, 40, PAINTS[car.paint].slice(1, 4));
+const chips = (x, y, n) => burst(x, y, n, 3.5, 3, .25, 40, ['#bddabd', '#6a9a7a', '#355846']);
 const smoke = (x, y) => fx.push({ k: 'm', x, y, vx: (Math.random() - .5) * .3, vy: .35 + Math.random() * .3, g: 0, t: 0, life: 70 });
 const ring = (x, y) => fx.push({ k: 'r', x, y, t: 0, life: 12 });
 const hitSpark = (x, y, big) => fx.push({ k: 'h', x, y, t: 0, life: big ? 10 : 7, big, a: Math.random() });
-function flowerBurst() {                         // 打铁花: molten iron flung up behind the stacks
-  const x = Math.random() * SW, y = 70 + Math.random() * 30;
-  for (let i = 0; i < 24; i++) {
-    const a = Math.PI / 2 + (Math.random() - .5) * 1.4, v = 2 + Math.random() * 2.6;
-    flowers.push({ x, y, vx: Math.cos(a) * v * .7, vy: Math.sin(a) * v, t: 0, life: 50 + Math.random() * 40 | 0 });
-  }
-}
 function stepFx() {
-  for (const list of [fx, flowers]) for (let i = list.length - 1; i >= 0; i--) {
+  for (const list of [fx]) for (let i = list.length - 1; i >= 0; i--) {
     const p = list[i];
     if (++p.t >= p.life) { list.splice(i, 1); continue; }
     if (p.vy === undefined) continue;             // rings and hit sparks stay put
@@ -972,7 +864,7 @@ function keyInput() {
 }
 
 // ════════ the robot ════════
-const GRAV = .42, JUMP_V = 8, HW = 11;
+const GRAV = .42, JUMP_V = 9.8, HW = 11;
 const hero = { x: 120, y: 0, vx: 0, vy: 0, face: 1, air: false, onCar: false, hist: [], usedAir: false, jdir: 0, blink: 90, eyes: 'open', canHit: false };
 const cur = f => f.mv.f[f.fi];
 function play(f, key) { f.key = key; f.mv = MOVES[key]; f.fi = 0; enter(f); }
@@ -996,7 +888,7 @@ function update(f, inp) {
     else {
       const sp = btn.length ? special(f, btn) : null, b = btn[0];
       if (sp) { f.hist.length = 0; f.buf = null; play(f, sp); }
-      else if (b) { f.buf = null; play(f, rel <= 3 ? (b[1] === 'P' ? 'cP' : 'cK') : rel === 6 ? (b[1] === 'P' ? 'ELB' : 'KNEE') : b); }
+      else if (b) { f.buf = null; play(f, f.onCar ? (b[1] === 'P' ? 'roofP' : 'roofK') : rel <= 3 ? (b[1] === 'P' ? 'cP' : 'cK') : rel === 6 ? (b[1] === 'P' ? 'ELB' : 'KNEE') : b); }
       else if (rel >= 7) { f.jdir = rel === 9 ? 1 : rel === 7 ? -1 : 0; play(f, 'jsq'); }
       else if (rel <= 3) { if (f.key !== 'crouch') play(f, 'crouch'); }
       else if (rel === 6) { if (f.key !== 'walk') play(f, 'walk'); f.x += 1.6 * f.face; }
@@ -1027,7 +919,10 @@ const topUnder = x => Math.max(carTop(x - HW - car.x), carTop(x - car.x), carTop
 function collide(f, py) {                         // the car is a wall from the side and a platform from above
   const top = topUnder(f.x);
   if (f.air) {
-    if (top >= 0 && f.vy <= 0 && py >= top - 2 && f.y <= top) land(f, top, true);
+    if (top >= 0 && f.vy <= 0 && py >= top - 2 && f.y <= top) {
+      if (state === 'play') hitCheck(f); // A descending strike connects before landing replaces its active frame.
+      land(f, topUnder(f.x), true);
+    }
     else if (top >= 0 && f.y < top - 2) pushOut(f);
     else if (f.y <= 0) land(f, 0, false);
   } else if (f.onCar) {
@@ -1041,7 +936,7 @@ function land(f, y, onCar) {
   play(f, 'land'); sfx('land');
 }
 function pushOut(f) {
-  const left = car.x - 89 - HW - .5, right = car.x + 89 + HW + .5;
+  const left = car.x - CAR_HALF - HW - .5, right = car.x + CAR_HALF + HW + .5;
   f.x = f.x - left < right - f.x ? left : right;   // keep vx: a jump that starts at the bumper still carries over it
 }
 function resetHero() {
@@ -1051,9 +946,7 @@ function resetHero() {
 
 // ════════ hitting the car ════════
 function resetCar() {
-  car.paint = (car.paint + 1) % PAINTS.length; car.rgb = paintRGB(car.paint);
-  Object.assign(car, { hp: { rear: 0, cabin: 0, front: 0 }, lv: { rear: 0, cabin: 0, front: 0 }, dents: [], cracks: [], gone: new Set(), shake: 0, by: 0, bv: 0, dirty: true });
-  for (const k of ['bumperF', 'bumperR', 'mirror', 'hood', 'trunk', 'doorF', 'doorR']) PARTS[k] = partSprite(k);
+  Object.assign(car, { hp: { rear: 0, cabin: 0, front: 0 }, lv: { rear: 0, cabin: 0, front: 0 }, shake: 0, by: 0, bv: 0, dirty: true });
 }
 function hitCheck(f) {
   const [, , ex = {}] = cur(f);
@@ -1085,50 +978,37 @@ function hitCar(z, cx, cy, dmg) {
   car.hp[z] = Math.min(ZHP[z], car.hp[z] + dmg);
   if (z !== 'cabin') car.hp.cabin = Math.min(ZHP.cabin, car.hp.cabin + dmg * .35);
   score += dmg * 50;
-  const top = carTop(cx);
-  if (car.dents.length < 40 && top > 14) car.dents.push({ x: cx + (Math.random() - .5) * 6, y: Math.max(14, Math.min(cy, top - 4)), r: heavy ? 5 : 3.5 });
   chips(car.x + cx, cy, heavy ? 8 : 4);
   for (const k in ZONES) {
     const lv = Math.min(3, Math.floor(car.hp[k] / ZHP[k] * 3 + 1e-9));
     while (car.lv[k] < lv) breakPart(k, ++car.lv[k]);
   }
   car.dirty = true;
-  if (car.lv.rear + car.lv.cabin + car.lv.front === 9) endRound(true);
+  if (car.lv.rear + car.lv.cabin + car.lv.front === 9) { fling('wheel', car.x - 65, WR, 5); endRound(true); }
 }
 function breakPart(z, lv) {
-  const X = car.x, out = k => car.gone.add(k);
+  const x = car.x + (z === 'front' ? 83 : z === 'rear' ? -86 : -15), y = z === 'cabin' ? 83 : 48;
   score += 1000; sfx('metal');
-  if (z === 'front') {
-    if (lv === 1) { glassBurst(X + 86, 29, 10); sfx('glass'); }
-    if (lv === 2) { out('bumperF'); fling('bumperF', X + 88, 17, 3); }
-    if (lv === 3) { fling('hood', X + 60, 37, 6); out('wheelfront'); fling('wheel', X + WHEELS.front, WR, 4); }
-  }
-  if (z === 'rear') {
-    if (lv === 1) { glassBurst(X - 86, 31, 10); sfx('glass'); }
-    if (lv === 2) { out('bumperR'); fling('bumperR', X - 88, 17, 3); }
-    if (lv === 3) { fling('trunk', X - 72, 38, 5); out('wheelrear'); fling('wheel', X + WHEELS.rear, WR, 4); }
-  }
-  if (z === 'cabin') {
-    sfx('glass');
-    if (lv === 1) for (let i = 0; i < 4; i++) {
-      const w = i & 1, x = w ? 4 + Math.random() * 20 : -40 + Math.random() * 26, y = 42 + Math.random() * 10;
-      car.cracks.push({ w, x, y, rays: Array.from({ length: 5 }, (_, r) => { const a = r * 1.257 + Math.random() * .6, l = 4 + Math.random() * 6; return [Math.cos(a) * l, Math.sin(a) * l]; }) });
-    }
-    if (lv === 2) { glassBurst(X, 47, 34); out('mirror'); fling('mirror', X + 33, 41, 5); }
-    if (lv === 3) { fling('doorF', X + 14, 24, 4.5, 1.9); fling('doorR', X - 28, 24, 5, 1.9); }
+  glassBurst(x, y, lv === 1 ? 14 : 24); sfx('glass');
+  if (lv === 1) fling('glass', x, y, 4);
+  if (lv === 2) fling(z === 'front' ? 'bumperF' : z === 'rear' ? 'bumperR' : 'mirror', x, y, 5);
+  if (lv === 3) {
+    fling(z === 'front' ? 'hood' : z === 'rear' ? 'trunk' : 'doorF', x, y, 6);
+    if (z === 'cabin') fling('doorR', x - 30, y - 24, 5);
   }
 }
 
 // ════════ round flow: title → ready → play → end → tally → done ════════
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const ROUND = 45 * 60;
+const ROUND = 40 * 60;
 let state = 'title', st = 0, timer = ROUND, score = 0, hi = 0, bonus = 0, bonusTotal = 0, perfect = false;
 let freeze = 0, quake = 0, cheer = 0, camX = 0, frame = 0, showBox = false, touchMode = false;
 try { hi = +localStorage.getItem('h2x-hi') || 0; } catch { /* storage blocked: no high score */ }
 function newRound() {
   resetCar(); resetHero();
-  fx.length = flowers.length = debris.length = 0;
+  fx.length = debris.length = 0;
   score = 0; timer = ROUND; perfect = false; state = 'ready'; st = 0;
+  freeze = quake = cheer = 0; queued.clear();
   camera(true);
 }
 function endRound(win) {
@@ -1139,11 +1019,12 @@ function endRound(win) {
   if (win) cheer = 240;
 }
 function press(b) {
+  if (!CAR_FRAMES.length) return;
   if (state === 'title' || (state === 'done' && st > 30)) { newRound(); return; }
   if (state === 'play' && b !== 'START') queued.add(b);
 }
 function camera(snap) {                           // keep both the robot and the car in view
-  const want = Math.max(0, Math.min(STAGE_W - SW, hero.x - SW / 2 + (car.x - hero.x) * .4));
+  const want = Math.max(0, Math.min(STAGE_W - SW, Math.max(hero.x - SW + 40, Math.min(hero.x - 40, car.x - SW / 2))));
   camX = snap ? want : camX + (want - camX) * .15;
 }
 function step() {
@@ -1151,7 +1032,6 @@ function step() {
   stepFx();
   if (quake > 0) quake--;
   if (cheer > 0) cheer--;
-  if (perfect && state !== 'play' && frame % 6 === 0) flowerBurst();
   if (freeze > 0) { freeze--; return; }           // hit-stop
   if (car.shake > 0) car.shake--;
   car.bv += -car.by * .3 - car.bv * .25; car.by += car.bv;
@@ -1186,11 +1066,17 @@ function pline(x0, y0, x1, y1) {                  // Bresenham line in the curre
 }
 function drawCar() {
   if (car.dirty) bakeCar();
-  const sx = Math.round(car.x - camX) + (car.shake ? (car.shake & 2 ? 2 : -2) : 0), by = Math.round(car.by);
-  ctx.fillStyle = '#0b0b0f';
-  for (let r = -3; r <= 2; r++) { const hw = Math.round(94 * Math.sqrt(1 - (r / 4) ** 2)); ctx.fillRect(sx - hw, GROUND + r, hw * 2, 1); }
-  for (const k in WHEELS) if (!car.gone.has('wheel' + k)) ctx.drawImage(WHEEL.cv, sx + WHEELS[k] + WHEEL.dx, GROUND - WR + WHEEL.dy);
+  const sx = Math.round(car.x - camX) + (!calm && car.shake ? (car.shake & 2 ? 2 : -2) : 0), by = calm ? 0 : Math.round(car.by);
+  ctx.fillStyle = '#635f65';
+  ctx.fillRect(sx - 108, GROUND - 4, 218, 6);
+  if (!carShape().wreck) ctx.drawImage(CAR_UNDER, sx - CAR_HALF, GROUND - 110, 228, 125);
   ctx.drawImage(car.spr.cv, sx + car.spr.dx, GROUND + by + car.spr.dy);
+  if (perfect && st < 100) {
+    for (const [x, blue] of [[-64, false], [61, true]]) {
+      const phase = (frame / 6 | 0) % 3, px = (blue ? 294 : 190) + phase * 35;
+      ctx.drawImage(atlas, px, 547, 34, 48, sx + x - 17, GROUND - 72, 34, 48);
+    }
+  }
 }
 function drawDebris(resting) {                    // settled panels sit behind the car, flying ones in front
   for (const d of debris) {
@@ -1199,18 +1085,10 @@ function drawDebris(resting) {                    // settled panels sit behind t
     ctx.drawImage(d.s.cv, d.s.dx, d.s.dy); ctx.restore();
   }
 }
-function drawDogs(ox) {
-  for (const d of DOGS) {
-    const hop = cheer > 0 && (cheer + d.ph) % 18 < 9, s = hop ? DOG.hop : (frame + d.ph * 3) % 100 < 70 ? DOG.sit : DOG.look;
-    ctx.save(); ctx.translate(Math.round(d.x + ox), d.y - (hop ? 3 : 0));
-    if (d.face < 0) ctx.scale(-1, 1);
-    ctx.drawImage(s.cv, s.dx, s.dy); ctx.restore();
-  }
-}
 function drawShadow(f) {
   const t = topUnder(f.x), base = t >= 0 && f.y >= t - 2 ? t : 0;
   const w = Math.round(22 * Math.max(.4, 1 - (f.y - base) / 120)), x = Math.round(f.x - camX), y = GROUND - Math.round(base);
-  ctx.fillStyle = base ? PAINTS[car.paint][4] : '#0d0d11';
+  ctx.fillStyle = base ? '#203f36' : '#6e655b';
   for (let r = -2; r <= 2; r++) { const hw = Math.round(w * Math.sqrt(1 - (r / 3) ** 2)); ctx.fillRect(x - hw, y + r - 1, hw * 2, 1); }
 }
 function drawFighter(f) {
@@ -1245,9 +1123,6 @@ function drawFx() {
     }
   }
 }
-function drawFlowers() {
-  for (const p of flowers) { const u = p.t / p.life; ctx.fillStyle = P_SPARK[Math.min(4, u * 5 | 0)]; ctx.fillRect(Math.round(p.x), Math.round(GROUND - p.y), u < .25 ? 2 : 1, 1); }
-}
 function drawBoxes(f) {
   const rect = (col, x0, y0, x1, y1) => { ctx.strokeStyle = col; ctx.strokeRect(Math.round(x0 - camX) + .5, GROUND - y1 + .5, x1 - x0 - 1, y1 - y0 - 1); };
   for (const z in ZONES) { const [a, b, c, d] = ZONES[z]; rect('#ffe066', car.x + a, b, car.x + c, z === 'cabin' ? carShape().roof + 4 : d); }
@@ -1260,11 +1135,11 @@ const center = (s, y, col, k) => text(ctx, s, (SW - textW(s, k)) >> 1, y, col, k
 const SHADE = layer(SW);                          // 50% checkerboard dim behind the results text
 for (let y = 0; y < SH; y++) for (let x = y & 1; x < SW; x += 2) fill(SHADE, '#04050a', x, y, 1, 1);
 function hud() {
-  text(ctx, 'SCORE', 10, 6, '#8d95aa'); text(ctx, String(score), 10, 16, '#e6ecf4');
+  text(ctx, '1P SCORE', 10, 6, '#fff3ca'); text(ctx, String(score), 10, 16, '#e6ecf4');
   const T = String(Math.ceil(timer / 60)).padStart(2, '0'), H = String(Math.max(hi, score));
-  center('TIME', 6, '#8d95aa', 1);
+  center('TIME', 6, '#fff3ca', 1);
   center(T, 16, timer <= 600 && state === 'play' && frame % 30 < 15 ? '#ff7b6b' : '#ffe066', 2);
-  text(ctx, 'HI', SW - 10 - textW('HI'), 6, '#8d95aa'); text(ctx, H, SW - 10 - textW(H), 16, '#e6ecf4');
+  text(ctx, 'HI', SW - 10 - textW('HI'), 6, '#fff3ca'); text(ctx, H, SW - 10 - textW(H), 16, '#e6ecf4');
 }
 function messages() {
   const blink = frame % 60 < 40;
@@ -1272,7 +1147,7 @@ function messages() {
     center('BONUS STAGE', 64, '#ffe066', 2); center('SMASH THE CAR', 86, '#e6ecf4', 1);
     if (blink) center(touchMode ? 'TAP TO START' : 'PRESS START', 102, '#5ef2ff', 1);
   }
-  if (state === 'ready') center(st < 50 ? 'READY' : 'GO!', 66, st < 50 ? '#e6ecf4' : '#5ef2ff', 3);
+  if (state === 'ready') center(st < 50 ? 'BONUS STAGE' : 'BEGIN!', 61, st < 50 ? '#fff3ca' : '#ffe066', 2);
   if (state === 'end') center(perfect ? 'PERFECT!' : 'TIME OVER', 38, perfect ? '#ffe066' : '#ff7b6b', 3);
   if (state === 'tally' || state === 'done') {
     center(perfect ? 'PERFECT!' : 'TIME OVER', 44, perfect ? '#ffe066' : '#ff7b6b', 2);
@@ -1285,12 +1160,7 @@ function render() {
   const qx = quake ? (quake & 2 ? 2 : -2) : 0, qy = quake ? (quake & 4 ? 1 : -1) : 0;
   ctx.fillStyle = '#04050a'; ctx.fillRect(0, 0, SW, SH);
   ctx.save(); ctx.translate(qx, qy);
-  ctx.drawImage(L.sky.canvas, 0, 0);
-  ctx.drawImage(L.far.canvas, -Math.round(camX * .3), 0);
-  drawFlowers();
-  ctx.drawImage(L.mid.canvas, -Math.round(camX * .6), 0);
-  drawDogs(-Math.round(camX * .6));
-  ctx.drawImage(L.ground.canvas, -Math.round(camX), 0);
+  drawHarbor();
   drawDebris(true); drawCar(); drawDebris(false); drawShadow(hero); drawFighter(hero); drawFx();
   if (showBox) drawBoxes(hero);
   ctx.restore();
@@ -1378,17 +1248,68 @@ function selfTest() {                              // open with #test to run
   ok(motion([6, 5, 2, 3], [6, 2, 3]), 'dp');
   ok(relDir(4, -1) === 6 && relDir(3, -1) === 1 && relDir(8, -1) === 8, 'mirror');
   ok(Math.sin(solve([0, 47], [10, 4], 25, 24, 1)[0]) > 0, 'knee bends forward');
-  ok(Math.abs(carTop(0) - 58.5) < .01 && carTop(-95) === -1 && carTop(-89) === 33, 'car roof profile');
+  ok(atlas.naturalWidth === 594 && atlas.naturalHeight === 604 && CAR_FRAMES.length === 10, 'original atlas loaded');
+  ok(carTop(0) === 102 && carTop(-115) === -1 && carTop(114) === 42, 'enlarged roof profile');
+  for (const face of [1, -1]) {
+    resetCar(); resetHero(); state = 'play';
+    hero.face = face; hero.x = car.x - face * (CAR_HALF + HW + .5);
+    for (const key of ['LP', 'MP', 'HP', 'LK', 'MK', 'HK', 'cP', 'cK', 'ELB', 'KNEE']) {
+      play(hero, key); hero.fi = hero.mv.f.findIndex(f => f[2]?.hit); enter(hero);
+      const before = score; hitCheck(hero);
+      ok(score > before, key + ' connects at bumper facing ' + face);
+      const after = score; hitCheck(hero); ok(score === after, 'one hit per active frame');
+      resetCar();
+    }
+    hero.x = car.x - face * 100; hero.y = 0; pushOut(hero);
+    ok(Math.abs(hero.x - car.x) > CAR_HALF + HW, 'body blocks both sides');
+    play(hero, 'idle');
+    for (let n = 0; n < 90 && !hero.onCar; n++) update(hero, { dir: n < 4 ? (face === 1 ? 9 : 7) : 5, btn: new Set() });
+    ok(hero.onCar && !hero.air, 'jump reaches enlarged car from side ' + face);
+  }
+  resetCar(); resetHero(); state = 'play';
+  hero.x = car.x; hero.y = 110; hero.air = true; hero.vy = -4;
+  play(hero, 'jS'); hero.y = 100;
+  collide(hero, 110);
+  ok(hero.onCar && !hero.air && car.hp.cabin > 0, 'stomp hits before roof landing');
+  for (const key of ['roofP', 'roofK']) {
+    hero.y = topUnder(hero.x); play(hero, key); hero.fi = 1; enter(hero);
+    const before = car.hp.cabin; hitCheck(hero); ok(car.hp.cabin > before, key + ' damages roof');
+  }
+  hero.x = car.x + CAR_HALF + HW + 1; collide(hero, hero.y);
+  ok(hero.air && !hero.onCar, 'walk off roof');
+  for (let rear = 0; rear < 4; rear++) for (let cabin = 0; cabin < 4; cabin++) for (let front = 0; front < 4; front++) {
+    car.lv = { rear, cabin, front }; bakeCar();
+    ok(car.spr.cv.width === 228 && car.spr.cv.height === 110, 'all 64 damage combinations keep dimensions');
+    ok(Number.isFinite(carTop(0)), 'damaged roof stays finite');
+  }
+  resetCar(); state = 'play';
+  for (const z in ZONES) hitCar(z, 0, 40, ZHP[z]);
+  ok(perfect && state === 'end' && carShape().wreck, 'complete destruction wins');
+  state = 'play'; timer = 1; freeze = 0; step();
+  ok(state === 'end' && !perfect && timer === 0, 'timeout loses');
+  freeze = 10; quake = 8; newRound();
+  ok(timer === ROUND && freeze === 0 && quake === 0 && !perfect && state === 'ready', 'retry resets round');
+  resetCar(); resetHero(); state = 'title'; st = score = bonus = bonusTotal = 0;
+  fx.length = debris.length = 0; camera(true);
   console.log('selfTest OK');
 }
 
-resetCar(); resetHero(); camera(true); fit();
-if (location.hash === '#test') selfTest();
-let last = performance.now(), acc = 0;
-requestAnimationFrame(function loop(now) {
-  acc = Math.min(acc + (now - last) / 1000, .1); last = now;
-  while (acc >= 1 / 60) { acc -= 1 / 60; step(); }
-  render();
-  requestAnimationFrame(loop);
-});
+atlas.onload = () => {
+  prepareCarSprites();
+  resetCar(); resetHero(); camera(true); fit();
+  $('assetStatus').hidden = true;
+  if (location.hash === '#test') selfTest();
+  let last = performance.now(), acc = 0;
+  requestAnimationFrame(function loop(now) {
+    acc = Math.min(acc + (now - last) / 1000, .1); last = now;
+    while (acc >= 1 / 60) { acc -= 1 / 60; step(); }
+    render();
+    requestAnimationFrame(loop);
+  });
+};
+atlas.onerror = () => {
+  $('assetStatus').textContent = '汽车素材加载失败，请刷新重试，并确认 assets/ssf2-car-stage.png 文件存在。';
+};
+atlas.src = 'assets/ssf2-car-stage.png';
+fit();
 </script>
